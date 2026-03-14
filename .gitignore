@@ -1,0 +1,30 @@
+# Environment
+.env
+.env.local
+.env-dev
+
+# Python
+__pycache__/
+.mypy_cache/
+*.pyc
+*.pyo
+venv/
+.venv/
+
+# RAG database
+chroma_db/
+
+# Logs
+server.log
+*.log
+
+# Frontend
+node_modules/
+frontend/dist/
+.next/
+
+# Screenshots
+/tmp/screenshots/
+
+# OS
+.DS_Store
