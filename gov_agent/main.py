@@ -18,6 +18,13 @@ app.include_router(
     tags=["WhatsApp"]
 )
 
+from gov_agent import auth_router
+app.include_router(
+    auth_router.router,
+    prefix="/auth",
+    tags=["Auth"]
+)
+
 
 @asynccontextmanager
 async def lifespan(app):
