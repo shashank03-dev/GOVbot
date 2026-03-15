@@ -1,161 +1,169 @@
-import { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
+export default function Login() {
+  const [step, setStep] = useState<1 | 2>(1);
+  const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [resendTimer, setResendTimer] = useState(0);
+  const router = useRouter();
 
-type Application = {
-  id: string;
-  phone: string;
-  service: string;
-  status: 'pending' | 'submitted' | 'failed';
-  submitted_at: string;
-};
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (step === 2 && resendTimer > 0) {
+      timer = setInterval(() => {
+        setResendTimer((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [step, resendTimer]);
 
-export default function AdminDashboard() {
-  const [data, setData] = useState<Application[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null)
+  const handleSendOtp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setError('');
+    setLoading(true);
 
-
-  const fetchApplications = async () => {
     try {
-      const { data: applications, error } = await supabase
-        .from('applications')
-        .select('*')
-        .order('submitted_at', { ascending: false });
+      const res = await fetch('/api/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone }),
+      });
 
-      if (error) throw error;
-      
-      if (applications) {
-        setData(applications as Application[]);
-        setLastRefreshed(new Date());
+      if (!res.ok) {
+        throw new Error('Failed to send OTP. Please try again.');
       }
-    } catch (error) {
-      console.error('Error fetching applications:', error);
+
+      setStep(2);
+      setResendTimer(30);
+    } catch (err: any) {
+      setError(err.message || 'An error occurred.');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchApplications();
-    const timer = setInterval(fetchApplications, 30000);
-    return () => clearInterval(timer);
-  }, []);
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
 
-  const totalApplications = data.length;
-  const submittedCount = data.filter(app => app.status === 'submitted').length;
-  const failedCount = data.filter(app => app.status === 'failed').length;
+    try {
+      const res = await fetch('/api/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, otp }),
+      });
 
-  const formatPhone = (phone: string) => {
-    if (!phone) return '';
-    const cleanPhone = phone.replace(/[^0-9]/g, '');
-    const last4 = cleanPhone.slice(-4);
-    return `****${last4}`;
-  };
+      if (!res.ok) {
+        throw new Error('Invalid OTP. Please try again.');
+      }
 
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return '';
-    // Append Z to treat as UTC
-    const d = new Date(dateStr + 'Z');
-    const IST = new Date(d.getTime() + (5.5 * 60 * 60 * 1000));
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    return `${pad(IST.getUTCDate())}/${pad(IST.getUTCMonth() + 1)}/${IST.getUTCFullYear()}, ${pad(IST.getUTCHours())}:${pad(IST.getUTCMinutes())}`;
-  };
+      const data = await res.json();
+      
+      const token = data.token || 'dummy-token-fallback';
 
-
-
-  const formatTimestamp = (date: Date) => {
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
-    return `${hours}:${minutes}:${seconds}`;
+      localStorage.setItem('govbot_token', token);
+      localStorage.setItem('govbot_phone', phone);
+      
+      router.push('/dashboard');
+    } catch (err: any) {
+      setError(err.message || 'An error occurred.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-[#000000] text-[#ffffff] font-mono rounded-none">
-      {/* Header bar */}
-      <header className="w-full flex justify-between items-center p-4 border-b border-[#22c55e]/30 rounded-none bg-[#000000]">
-        <h1 className="text-xl font-bold">⚡ GovBot Admin</h1>
-        <div className="bg-green-500 text-black px-3 py-1 text-sm font-bold rounded-none flex items-center justify-center">
-          {totalApplications}
-        </div>
-      </header>
-
-      <main className="p-6 max-w-7xl mx-auto">
-        {/* Stats row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="border border-[#22c55e]/30 p-4 bg-[#0a0a0a] rounded-none">
-            <div className="text-sm text-gray-400 mb-2 mt-1 uppercase">Total Applications</div>
-            <div className="text-3xl font-bold">{loading ? '-' : totalApplications}</div>
-          </div>
-          <div className="border border-[#22c55e]/30 p-4 bg-[#0a0a0a] rounded-none">
-            <div className="text-sm text-gray-400 mb-2 mt-1 uppercase">Submitted</div>
-            <div className="text-3xl font-bold text-green-500">{loading ? '-' : submittedCount}</div>
-          </div>
-          <div className="border border-[#22c55e]/30 p-4 bg-[#0a0a0a] rounded-none">
-            <div className="text-sm text-gray-400 mb-2 mt-1 uppercase">Failed</div>
-            <div className="text-3xl font-bold text-red-500">{loading ? '-' : failedCount}</div>
-          </div>
+    <div className="min-h-screen bg-black font-mono text-white flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-md border border-[#22c55e] p-8">
+        <h1 className="text-2xl mb-6 text-[#22c55e] font-bold border-b border-[#22c55e] pb-4">
+          GOVBOT SYSTEM
+        </h1>
+        
+        <div className="mb-6 text-sm text-gray-400">
+          {step === 1 ? '> INITIATE SECURE LOGIN' : '> AWAITING VERIFICATION'}
         </div>
 
-        {/* Applications table */}
-        <div className="w-full border border-[#22c55e]/30 rounded-none overflow-x-auto bg-[#000000]">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="bg-[#0a0a0a] text-green-500 uppercase text-sm border-b border-[#22c55e]/30">
-                <th className="p-4 text-left font-normal border-r border-[#22c55e]/10">Phone</th>
-                <th className="p-4 text-left font-normal border-r border-[#22c55e]/10">Service</th>
-                <th className="p-4 text-left font-normal border-r border-[#22c55e]/10">Status</th>
-                <th className="p-4 text-left font-normal">Submitted At</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                // Skeleton loading rows
-                [...Array(5)].map((_, i) => (
-                  <tr key={i} className="border-b border-[#22c55e]/30">
-                    <td className="p-4 border-r border-[#22c55e]/10"><div className="h-4 bg-[#111111] animate-pulse w-24"></div></td>
-                    <td className="p-4 border-r border-[#22c55e]/10"><div className="h-4 bg-[#111111] animate-pulse w-32"></div></td>
-                    <td className="p-4 border-r border-[#22c55e]/10"><div className="h-6 bg-[#111111] animate-pulse w-20"></div></td>
-                    <td className="p-4"><div className="h-4 bg-[#111111] animate-pulse w-36"></div></td>
-                  </tr>
-                ))
-              ) : data.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="p-8 text-center text-gray-400">
-                    No applications yet
-                  </td>
-                </tr>
+        {error && (
+          <div className="mb-6 p-4 border border-red-500 text-red-500 bg-red-500/10">
+            {'> ERROR: '}{error}
+          </div>
+        )}
+
+        {step === 1 ? (
+          <form onSubmit={handleSendOtp} className="space-y-6">
+            <div className="space-y-2">
+              <label htmlFor="phone" className="block text-sm text-[#22c55e]">
+                {'>'} ENTER PHONE NUMBER
+              </label>
+              <input
+                id="phone"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+91 XXXXXXXXXX"
+                className="w-full bg-black border border-gray-600 p-3 text-white focus:outline-none focus:border-[#22c55e] placeholder-gray-700 transition-colors"
+                disabled={loading}
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={loading || !phone}
+              className="w-full bg-transparent border border-[#22c55e] text-[#22c55e] font-bold py-3 px-4 hover:bg-[#22c55e] hover:text-black disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-[#22c55e] uppercase tracking-widest transition-colors"
+            >
+              {loading ? 'PROCESSING...' : 'SEND OTP VIA WHATSAPP'}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleVerifyOtp} className="space-y-6">
+            <div className="space-y-2">
+              <label htmlFor="otp" className="block text-sm text-[#22c55e]">
+                {'>'} ENTER 6-DIGIT OTP
+              </label>
+              <input
+                id="otp"
+                type="text"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+                placeholder="------"
+                maxLength={6}
+                className="w-full bg-black border border-gray-600 p-3 text-[#22c55e] focus:outline-none focus:border-[#22c55e] tracking-[1rem] text-center text-xl transition-colors"
+                disabled={loading}
+                required
+              />
+            </div>
+            
+            <button
+              type="submit"
+              disabled={loading || otp.length !== 6}
+              className="w-full bg-[#22c55e] border border-[#22c55e] text-black font-bold py-3 px-4 hover:bg-transparent hover:text-[#22c55e] disabled:opacity-50 uppercase tracking-widest transition-colors"
+            >
+              {loading ? 'VERIFYING...' : 'VERIFY OTP'}
+            </button>
+            
+            <div className="pt-4 text-center">
+              {resendTimer > 0 ? (
+                <span className="text-gray-500 text-xs tracking-wider">
+                  RESEND AVAILABLE IN {resendTimer}S
+                </span>
               ) : (
-                data.map((app) => (
-                  <tr key={app.id} className="border-b border-[#22c55e]/30 hover:bg-[#111111] transition-colors">
-                    <td className="p-4 border-r border-[#22c55e]/10">{formatPhone(app.phone)}</td>
-                    <td className="p-4 border-r border-[#22c55e]/10">{app.service}</td>
-                    <td className="p-4 border-r border-[#22c55e]/10">
-                      <span className={`px-2 py-1 text-xs font-bold rounded-none ${
-                        app.status === 'pending' ? 'bg-yellow-500 text-black' :
-                        app.status === 'submitted' ? 'bg-green-500 text-black' :
-                        'bg-red-500 text-white'
-                      }`}>
-                        {app.status}
-                      </span>
-                    </td>
-                    <td className="p-4">{formatDate(app.submitted_at)}</td>
-                  </tr>
-                ))
+                <button
+                  type="button"
+                  onClick={(e) => handleSendOtp(e)}
+                  disabled={loading}
+                  className="text-gray-400 hover:text-[#22c55e] text-xs tracking-wider uppercase transition-colors"
+                >
+                  {'>'} RESEND OTP
+                </button>
               )}
-            </tbody>
-          </table>
-        </div>
-      </main>
-
-      {/* Footer */}
-      <footer className="w-full p-6 text-center text-xs text-gray-500 bg-[#000000]">
-        Auto-refreshing every 30s • Last updated: {lastRefreshed ? formatTimestamp(lastRefreshed) : '--'}
-      </footer>
+            </div>
+          </form>
+        )}
+      </div>
     </div>
   );
 }

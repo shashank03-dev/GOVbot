@@ -75,9 +75,13 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
                 if conf:
                     return (
                         f"🎉 Application Submitted!\n\n"
-                        f"Confirmation: {conf}\n"
-                        f"Track: govbot.vercel.app/track/{conf}",
+                        f"Confirmation: {conf}\n\n"
+                        f"Track status:\n"
+                        f"govbot.vercel.app/track/{conf}\n\n"
+                        f"View all your applications:\n"
+                        f"govbot.vercel.app/dashboard",
                         "completed", data)
+
                 error = result.get("error", "Unknown error")
                 return (f"❌ Failed: {error}\nType restart", "completed", data)
             except Exception as e:
@@ -92,9 +96,13 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
             if conf:
                 return (
                     f"🎉 Application Submitted!\n\n"
-                    f"Confirmation: {conf}\n"
-                    f"Track: govbot.vercel.app/track/{conf}",
+                    f"Confirmation: {conf}\n\n"
+                    f"Track status:\n"
+                    f"govbot.vercel.app/track/{conf}\n\n"
+                    f"View all your applications:\n"
+                    f"govbot.vercel.app/dashboard",
                     "completed", data)
+
             error = result.get("error", "Unknown error")
             return (f"❌ Failed: {error}\nType restart", "completed", data)
         except Exception as e:
