@@ -18,6 +18,9 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
     data = session.get("collected_data", {})
     state = session.get("state", "greeting")
 
+    if body.strip().lower() in ["restart", "cancel", "reset", "start over", "/start"]:
+        return (MENU, "greeting", {})
+
     if state == "greeting":
         if body == "1":
             return (
