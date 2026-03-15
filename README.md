@@ -1,281 +1,178 @@
-<div align="center">
+# GovBot 🤖🇮🇳
 
-# 🇮🇳 GovBot
+WhatsApp-first agentic AI for Indian government service delivery. Seamlessly bridging the gap between citizens and government portals through a conversational interface.
 
-### WhatsApp-first agentic AI that delivers Indian government services — right in your chat.
-
-[![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![LangGraph](https://img.shields.io/badge/LangGraph-Agentic-FF6B6B?style=for-the-badge&logo=langchain&logoColor=white)](https://github.com/langchain-ai/langgraph)
-[![Next.js](https://img.shields.io/badge/Next.js-15-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org)
-[![Supabase](https://img.shields.io/badge/Supabase-Database-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com)
-[![Gemini](https://img.shields.io/badge/Google_Gemini-AI-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev)
-[![WhatsApp](https://img.shields.io/badge/WhatsApp_Cloud_API-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://developers.facebook.com/docs/whatsapp)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
-
-</div>
+[![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
+[![LangGraph](https://img.shields.io/badge/LangGraph-2C3E50?style=for-the-badge)](https://langchain-ai.github.io/langgraph/)
+[![Google Gemini](https://img.shields.io/badge/Google%20Gemini-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white)](https://deepmind.google/technologies/gemini/)
+[![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
+[![Playwright](https://img.shields.io/badge/Playwright-2EAD33?style=for-the-badge&logo=playwright&logoColor=white)](https://playwright.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+[![Railway](https://img.shields.io/badge/Railway-131415?style=for-the-badge&logo=railway&logoColor=white)](https://railway.app/)
+[![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com/)
 
 ---
 
-## 🎬 Demo
+### 🌐 [Live Demo](https://govbot-fawn.vercel.app) | 📦 [Backend on Railway](https://railway.app)
 
-<div align="center">
-  <img src="gov_agent/docs/demo1.gif" alt="GovBot Demo — WhatsApp conversation applying for a government scheme" width="400"/>
-</div>
-- Edited From  **Veed.io**
----
+![GovBot Demo](gov_agent/docs/demo1.gif)
 
-## 🚨 The Problem
+## ⚠️ The Problem
 
-India has **1500+ central government schemes** and hundreds more at the state level. Yet:
+- **Portal Fatigue:** Navigating multiple, often complex government portals is overwhelming for the average citizen.
+- **Language & Tech Barriers:** Non-tech savvy users struggle with digital-first application processes.
+- **Manual Overhead:** Time-consuming form-filling and repetitive data entry lead to errors and delays.
+- **Fragmented Tracking:** No single place to track all government applications on a mobile device.
 
-- 🧭 Most citizens **don't know which schemes they qualify for**
-- 📋 Government portals are **complex, English-first, and desktop-only**
-- 🕐 Visiting a CSC (Common Service Centre) means **half-day lost from work**
-- 📄 Forms are filled **incorrectly**, leading to rejections and re-submissions
+## ⚙️ How it works
 
-**Result:** Billions of rupees in scheme benefits go unclaimed every year.
-
----
-
-## 💡 How GovBot Works
-
-GovBot meets citizens where they already are — **WhatsApp** — and guides them through the entire service-delivery lifecycle in their language, with zero app downloads or complex logins.
-
+```mermaid
+graph TD
+    A[Citizen on WhatsApp] --> B{WhatsApp API}
+    B --> C[FastAPI Backend]
+    C --> D[LangGraph Agent]
+    D --> E[Gemini 2.0 Flash]
+    E --> F[Portal Automation]
+    F --> G[Playwright Browser]
+    G --> H[Gov Portals]
+    H --> I[Supabase DB]
+    I --> J[WhatsApp Confirmation]
 ```
-Citizen sends a WhatsApp message
-          │
-          ▼
- ┌─────────────────────┐
- │  WhatsApp Webhook   │  ← FastAPI receives & routes message
- └────────┬────────────┘
-          │
-          ▼
- ┌─────────────────────┐
- │   Session Manager   │  ← Maintains per-user conversation state
- └────────┬────────────┘
-          │
-          ▼
- ┌─────────────────────┐
- │    Flow Router      │  ← Determines current step in the journey
- └────────┬────────────┘
-          │
-    ┌─────┴──────┐
-    │            │
-    ▼            ▼
-┌───────┐  ┌──────────────┐
-│  RAG  │  │ Portal Agent │
-│Engine │  │ (Playwright) │
-└───────┘  └──────────────┘
-    │            │
-    └─────┬──────┘
-          │
-          ▼
- ┌─────────────────────┐
- │   LangGraph Agent   │  ← Reasoning, intent detection, form-fill
- └────────┬────────────┘
-          │
-          ▼
- ┌─────────────────────┐
- │   WhatsApp Sender   │  ← Delivers reply back to citizen
- └─────────────────────┘
-          │
-          ▼
-   Supabase (Postgres)
-   Application stored
-   Admin dashboard live
-```
+*(ASCII representation of the flow)*
+`WhatsApp -> FastAPI -> LangGraph -> Gemini -> Playwright -> Gov Portals -> Supabase -> WhatsApp`
 
-### Conversation Flow
+## 💬 Conversation Flow
 
-| Step            | What Happens                                                                       |
-| --------------- | ---------------------------------------------------------------------------------- |
-| 1️⃣ **Greet**    | User says "Hi". Bot identifies itself and asks what they need.                     |
-| 2️⃣ **Discover** | RAG engine searches scheme eligibility based on user profile.                      |
-| 3️⃣ **Collect**  | Bot asks for required details — name, Aadhaar, income, etc. — one field at a time. |
-| 4️⃣ **Fill**     | Portal Agent (Playwright) auto-fills the government web form.                      |
-| 5️⃣ **Verify**   | Bot sends a summary; user confirms or corrects.                                    |
-| 6️⃣ **Submit**   | Form is submitted. Application ID is returned to the user.                         |
-| 7️⃣ **Track**    | User can WhatsApp "status `<ID>`" anytime to check progress.                       |
+| Step | Action | Description |
+| :--- | :--- | :--- |
+| 1 | **Initiation** | User sends "Hi" or a service request to the WhatsApp bot. |
+| 2 | **User Info** | Bot collects basic details like **Name**. |
+| 3 | **DOB** | Bot captures the user's **Date of Birth**. |
+| 4 | **Income** | Bot asks for **Annual Income** to determine eligibility. |
+| 5 | **Identity** | User uploads a photo of their **Aadhaar Card**. |
+| 6 | **Processing** | LangGraph orchestrates the flow; Playwright auto-fills the portal form. |
+| 7 | **Completion** | A **Confirmation Number** is sent back to the user on WhatsApp. |
 
----
+## 🛠 Tech Stack
 
-## 🛠️ Tech Stack
+| Component | Technology |
+| :--- | :--- |
+| **Backend** | FastAPI (Python) |
+| **Agentic Framework** | LangGraph |
+| **LLM** | Google Gemini 2.0 Flash |
+| **RAG** | ChromaDB + Gemini Embeddings |
+| **Automation** | Playwright |
+| **Messaging** | Meta WhatsApp Cloud API |
+| **Database** | Supabase (Postgres) |
+| **Authentication** | OTP via WhatsApp + JWT |
+| **Frontend** | Next.js 15 (TypeScript + Tailwind) |
+| **Deployment** | Railway (Backend), Vercel (Frontend) |
 
-| Layer                  | Technology                    | Purpose                             |
-| ---------------------- | ----------------------------- | ----------------------------------- |
-| **Messaging**          | WhatsApp Cloud API            | Citizen-facing interface            |
-| **Backend**            | FastAPI                       | Webhook server & REST API           |
-| **Agent Brain**        | LangGraph + Google Gemini     | Multi-step agentic reasoning        |
-| **RAG Pipeline**       | LangChain + Gemini Embeddings | Scheme discovery & Q&A              |
-| **Browser Automation** | Playwright                    | Auto-fills government portals       |
-| **Database**           | Supabase (Postgres)           | Application records & session state |
-| **Admin Dashboard**    | Next.js 15 + TypeScript       | Real-time monitoring & tracking     |
+## 🚀 Features
 
----
+1.  **WhatsApp-First:** No new app to download; just message and apply.
+2.  **Intelligent Chatbot:** Powered by Google Gemini 2.0 Flash for natural conversations.
+3.  **Smart OCR:** Automatically extracts data from Aadhaar card photos.
+4.  **Auto Portals:** Playwright-driven agents fill out government forms in real-time.
+5.  **RAG-Powered:** Context-aware responses based on official government documentation.
+6.  **Secure Auth:** One-time passwords (OTP) delivered directly via WhatsApp.
+7.  **User Dashboard:** View and manage all your applications at a glance.
+8.  **Admin Control:** Dedicated `/admin` route for overall application management.
+9.  **High Performance:** Built with the latest Next.js 15 and FastAPI for speed.
 
-## ✨ Features
+## 🛠 Setup Instructions
 
-- 🤖 **Fully Agentic** — LangGraph powers multi-turn, stateful conversations with dynamic branching
-- 📚 **RAG-Powered Scheme Discovery** — Retrieval-augmented generation over govt. scheme documents
-- 🖥️ **Automated Form Filling** — Playwright navigates and fills live government portals
-- 💬 **WhatsApp-Native UX** — No app download, no login. Works on any phone with WhatsApp
-- 🧠 **Contextual Session Memory** — Per-user state stored in Supabase across sessions
-- 📊 **Admin Dashboard** — Next.js frontend for real-time stats and application tracking
-- 🔁 **Application Status Tracking** — Users can track submissions via WhatsApp anytime
-- 🔒 **Secure Config** — All secrets via environment variables, no hardcoded credentials
-- 📦 **Modular Architecture** — Clean separation between agent, portal, RAG, and webhook layers
+1.  **Clone the Repository**
+    ```bash
+    git clone https://github.com/shashank03-dev/GovBot.git
+    cd GovBot
+    ```
 
----
+2.  **Install Backend Dependencies**
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-## 🚀 Setup Instructions
+3.  **Setup Playwright**
+    ```bash
+    playwright install chromium
+    ```
 
-### Prerequisites
+4.  **Configure Environment Variables**
+    Create a `.env` in the root and `frontend/.env.local` for the frontend (see below).
 
-- Python 3.11+
-- Node.js 18+
-- A [Meta Developer App](https://developers.facebook.com/) with WhatsApp Cloud API enabled
-- A [Supabase](https://supabase.com) project
-- A [Google AI Studio](https://aistudio.google.com) API key (Gemini)
-- [ngrok](https://ngrok.com) (for local webhook testing)
-- Playwright browsers: `playwright install chromium`
+5.  **Run the Backend**
+    ```bash
+    python3 -m gov_agent.main
+    ```
 
----
+6.  **Run the Frontend**
+    ```bash
+    cd frontend
+    npm install
+    npm run dev
+    ```
 
-### 1. Clone the repo
+## 🔑 Environment Variables
 
-```bash
-git clone https://github.com/shashank03-dev/GOVbot.git
-cd GOVbot
-```
+### Backend (`.env`)
+| Variable | Description |
+| :--- | :--- |
+| `WHATSAPP_TOKEN` | Meta WhatsApp Cloud API Access Token |
+| `WHATSAPP_PHONE_NUMBER_ID` | Your WhatsApp Phone ID |
+| `WHATSAPP_VERIFY_TOKEN` | Token for Webhook Verification |
+| `SUPABASE_URL` | Your Supabase Project URL |
+| `SUPABASE_KEY` | Supabase Service Role Key |
+| `GEMINI_API_KEY` | Google AI Studio Gemini API Key |
+| `SECRET_KEY` | JWT Secret Key for Auth |
 
-### 2. Set up the Python backend
+### Frontend (`frontend/.env.local`)
+| Variable | Description |
+| :--- | :--- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase Project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase Anonymous Key |
+| `NEXT_PUBLIC_RAILWAY_URL` | URL of your deployed backend |
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-playwright install chromium
-```
+## 📂 Project Structure
 
-### 3. Configure environment variables
-
-```bash
-cp .env.example .env
-# Edit .env with your credentials (see section below)
-```
-
-### 4. Start the FastAPI server
-
-```bash
-uvicorn gov_agent.main:app --reload --port 8000
-```
-
-### 5. Expose your local server with ngrok
-
-```bash
-ngrok http 8000
-# Copy the HTTPS forwarding URL
-```
-
-Set your WhatsApp webhook URL in the Meta Developer Console to:
-
-```
-https://<your-ngrok-url>/webhook/whatsapp
-```
-
-### 6. Start the Admin Dashboard
-
-```bash
-cd frontend
-npm install
-npm run dev
-# Open http://localhost:3000
-```
-
----
-
-## 🔐 Environment Variables
-
-Create a `.env` file in the project root with the following variables:
-
-| Variable                   | Description                                             |
-| -------------------------- | ------------------------------------------------------- |
-| `WHATSAPP_TOKEN`           | Bearer token from Meta WhatsApp Cloud API               |
-| `WHATSAPP_PHONE_NUMBER_ID` | Phone Number ID from Meta Developer Console             |
-| `WHATSAPP_VERIFY_TOKEN`    | Custom string you set as the webhook verification token |
-| `SUPABASE_URL`             | Your Supabase project API URL                           |
-| `SUPABASE_KEY`             | Your Supabase project `anon` or `service_role` key      |
-| `GEMINI_API_KEY`           | Google AI Studio API key for Gemini                     |
-
-> ⚠️ **Never commit `.env` to version control.** It is already added to `.gitignore`.
-
-For the frontend, create `frontend/.env.local`:
-
-| Variable                        | Description                |
-| ------------------------------- | -------------------------- |
-| `NEXT_PUBLIC_SUPABASE_URL`      | Same Supabase project URL  |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase `anon` public key |
-
----
-
-## 📁 Project Structure
-
-```
-GOVbot/
-├── gov_agent/                  # Core Python backend
-│   ├── main.py                 # FastAPI app entrypoint
-│   ├── whatsapp_webhook.py     # Webhook route handlers (GET verify + POST receive)
-│   ├── whatsapp_sender.py      # Sends messages via WhatsApp Cloud API
-│   ├── session_manager.py      # Per-user conversation state management
-│   ├── flow_router.py          # Routes messages to the correct agent step
-│   ├── graph.py                # LangGraph agent graph definition
-│   ├── portal_agent.py         # Playwright browser automation for form filling
-│   ├── rag_engine.py           # RAG pipeline for scheme discovery
-│   ├── models.py               # Pydantic / SQLAlchemy data models
-│   ├── db.py                   # Supabase database client
-│   ├── config.py               # Environment variable loader
-│   └── docs/                   # Scheme documents for RAG ingestion
-│
-├── frontend/                   # Next.js admin dashboard
+```text
+GovBot/
+├── gov_agent/                # Backend Logic
+│   ├── main.py               # FastAPI Entry Point
+│   ├── whatsapp_webhook.py    # Meta Webhook Handler
+│   ├── whatsapp_sender.py     # Message Sender Service
+│   ├── session_manager.py     # Conversation State
+│   ├── flow_router.py         # LangGraph Flow Logic
+│   ├── graph.py               # Agent Graph Definition
+│   ├── portal_agent.py        # Playwright Automation
+│   ├── rag_engine.py          # ChromaDB Integration
+│   ├── auth_router.py         # OTP & Login Routes
+│   ├── models.py              # Pydantic Schemas
+│   ├── db.py                  # Supabase Client
+│   ├── config.py              # Env Configurations
+│   └── docs/                  # Documentation & Media
+├── frontend/                 # Next.js Application
 │   ├── pages/
-│   │   ├── index.tsx           # Dashboard — stats + applications table
-│   │   └── track/[id].tsx      # Application status tracking page
-│   ├── styles/                 # Global CSS
-│   └── public/                 # Static assets
-│
-│
-├── .env                        # Local secrets (not committed)
-├── requirements.txt            # Python dependencies
-└── README.md
+│   │   ├── index.tsx         # Login Page
+│   │   ├── dashboard.tsx     # User Dashboard
+│   │   ├── admin.tsx         # Admin View
+│   │   └── track/[id].tsx    # Status Tracker
+│   └── pages/api/            # Relay API Routes
+├── requirements.txt          # Python Deps
+├── Procfile                  # Railway Deployment
+└── README.md                 # Project Documentation
 ```
-
----
 
 ## 🤝 Contributing
 
-Pull requests are welcome! For major changes, please open an issue first to discuss what you'd like to change.
+Contributions are welcome! Please open an issue or submit a pull request for any improvements or bug fixes.
 
-1. Fork the repo
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Commit your changes: `git commit -m 'feat: add amazing feature'`
-4. Push to the branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
+## 📄 License
 
----
-
-## 📜 License
-
-Distributed under the MIT License. See [`LICENSE`](LICENSE) for more information.
+This project is licensed under the MIT License - see the LICENSE file for details.
+Copyright (c) 2026 **Shashank Gowda**.
 
 ---
 
-<div align="center">
-
-Built with ❤️ for Bharat by **[Shashank Gowda](https://github.com/shashank03-dev)**
-
-_Making government services accessible to every Indian, one WhatsApp message at a time._
-
-⭐ Star this repo if you find it useful!
-
-</div>
+**Built with ❤️ for Bharat by [Shashank Gowda](https://github.com/shashank03-dev)**
