@@ -29,7 +29,7 @@ export default function Login() {
       const res = await fetch('/api/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ phone, code: otp.replace(/\s/g, '') })
       });
 
       if (!res.ok) {
@@ -128,7 +128,7 @@ export default function Login() {
                 id="otp"
                 type="text"
                 value={otp}
-                onChange={(e) => setOtp(e.target.value)}
+                onChange={(e) => setOtp(e.target.value.replace(/\s/g, ''))}
                 placeholder="------"
                 maxLength={6}
                 className="w-full bg-black border border-gray-600 p-3 text-[#22c55e] focus:outline-none focus:border-[#22c55e] tracking-[1rem] text-center text-xl transition-colors"

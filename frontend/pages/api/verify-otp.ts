@@ -5,7 +5,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ message: 'Method Not Allowed' });
   }
 
-  const { phone, code } = req.body;
+  const { phone, code , otp} = req.body;
 
   try {
     const response = await fetch(`${process.env.NEXT_PUBLIC_RAILWAY_URL}/auth/verify-otp`, {
@@ -13,7 +13,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ phone, code }),
+      body: JSON.stringify({ phone, code: code || otp }),
     });
 
     const data = await response.json();

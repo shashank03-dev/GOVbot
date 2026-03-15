@@ -1,6 +1,7 @@
 import uvicorn
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
+from gov_agent import auth_routery
 
 try:
     from api.app import app  # type: ignore

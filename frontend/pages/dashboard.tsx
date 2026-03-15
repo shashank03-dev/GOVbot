@@ -20,20 +20,29 @@ export default function UserDashboard() {
   const [data, setData] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [phone, setPhone] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const storedPhone = localStorage.getItem('phone');
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+
+    const token = localStorage.getItem('govbot_token');
+    const storedPhone = localStorage.getItem('govbot_phone');
 
     if (!token || !storedPhone) {
-      router.push('/login');
+      router.push('/');
       return;
     }
 
     setPhone(storedPhone);
     fetchApplications(storedPhone);
-  }, [router]);
+  }, [router, mounted]);
+
+  if (!mounted) return null;
 
   const fetchApplications = async (userPhone: string) => {
     try {
