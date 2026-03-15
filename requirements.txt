@@ -13,3 +13,4 @@ pydantic
 anthropic
 python-multipart
 aiofiles
+python-jose[cryptography]
