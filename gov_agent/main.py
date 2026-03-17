@@ -26,6 +26,13 @@ app.include_router(
     tags=["Auth"]
 )
 
+from gov_agent import pm_kisan_router
+app.include_router(
+    pm_kisan_router.router,
+    prefix="/pm-kisan",
+    tags=["PM Kisan"]
+)
+
 
 @asynccontextmanager
 async def lifespan(app):

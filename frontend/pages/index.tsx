@@ -164,6 +164,12 @@ export default function Login() {
           </form>
         )}
       </div>
+
+      <div className="mt-8 text-sm">
+        <a href="/pmkisan" className="text-gray-400 hover:text-[#22c55e] transition-colors">
+          🌾 Check PM Kisan Status (no login needed)
+        </a>
+      </div>
     </div>
   );
 }
