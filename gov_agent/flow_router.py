@@ -18,8 +18,13 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
     data = session.get("collected_data", {})
     state = session.get("state", "greeting")
 
-    if body.strip().lower() in ["restart", "cancel", "reset", "start over", "/start"]:
-        return (MENU, "greeting", {})
+    if body.strip().lower() in ["restart", "cancel", "reset", "start over", "/start", "close"]:
+        farewell = (
+            "👋 Thank you for using GovBot!\n\n"
+            "Your session has been closed.\n\n"
+            "Type 'Hi' anytime to start again 🙏"
+        )
+        return (farewell, "greeting", {})
 
     if state == "greeting":
         if body == "1":
