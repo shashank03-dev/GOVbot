@@ -8,8 +8,9 @@ MENU = (
     "🙏 Namaste! GovBot - Govt Services\n\n"
     "1️⃣ Apply for Scholarship\n"
     "2️⃣ Check Application Status\n"
-    "3️⃣ Check My Eligibility\n\n"
-    "Reply with 1, 2 or 3"
+    "3️⃣ Check My Eligibility\n"
+    "4️⃣ PM Kisan Status\n\n"
+    "Reply with 1, 2, 3 or 4"
 )
 
 
@@ -18,7 +19,15 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
     data = session.get("collected_data", {})
     state = session.get("state", "greeting")
 
-    if body.strip().lower() in ["restart", "cancel", "reset", "start over", "/start", "close"]:
+    if body.strip().lower() == "close":
+        return (
+            "👋 Thank you for using GovBot!\n\n"
+            "Your session has been closed.\n\n"
+            "Type 'Hi' anytime to start again 🙏",
+            "greeting", {}
+        )
+
+    if body.strip().lower() in ["restart", "cancel", "reset", "start over", "/start"]:
         farewell = (
             "👋 Thank you for using GovBot!\n\n"
             "Your session has been closed.\n\n"
@@ -39,6 +48,9 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
                 "Ask your eligibility question:",
                 "eligibility_query",
                 data)
+        elif body == "4":
+            return ("Enter your 12-digit Aadhaar number:",
+                    "pm_kisan_aadhaar", data)
         else:
             return (MENU, "greeting", data)
 
@@ -137,6 +149,39 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
     elif state == "eligibility_query":
         answer = await rag_engine.query_eligibility(body)
         return (answer, "greeting", data)
+
+    elif state == "pm_kisan_aadhaar":
+        aadhaar = body.strip().replace(" ", "")
+        if not aadhaar.isdigit() or len(aadhaar) != 12:
+            return (
+                "❌ Invalid Aadhaar number.\n"
+                "Please enter 12 digits only.",
+                "pm_kisan_aadhaar", data)
+        try:
+            from gov_agent import pm_kisan_agent
+            result = await pm_kisan_agent\
+                .check_pm_kisan_status(aadhaar)
+            if result.get("status") == "not_found":
+                return (
+                    "❌ No PM Kisan beneficiary found "
+                    "for this Aadhaar number.\n\n"
+                    "Type 'restart' to try again.",
+                    "greeting", data)
+            return (
+                f"✅ PM Kisan Status\n\n"
+                f"Name: {result.get('beneficiary_name','N/A')}\n"
+                f"State: {result.get('state','N/A')}\n"
+                f"Installments: {result.get('installments_count','N/A')}\n"
+                f"Last Payment: ₹{result.get('last_payment_amount','N/A')}\n"
+                f"Date: {result.get('last_payment_date','N/A')}\n"
+                f"Status: {result.get('status','N/A')}\n\n"
+                f"Type 'restart' for main menu.",
+                "greeting", data)
+        except Exception as e:
+            return (
+                f"❌ Could not fetch status: {str(e)}\n"
+                "Type 'restart' to try again.",
+                "greeting", data)
 
     elif state == "completed":
         if body.strip().lower() == "restart":
