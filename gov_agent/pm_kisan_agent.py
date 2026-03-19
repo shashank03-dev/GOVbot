@@ -14,7 +14,8 @@ async def check_pm_kisan_status(aadhaar: str) -> dict:
 
         await page.goto(
             "https://pmkisan.gov.in/BeneficiaryStatus/BeneficiaryStatus_ja.aspx",
-            wait_until="networkidle",
+            wait_until="domcontentloaded",
+            timeout=60000
         )
 
         # Select "Aadhaar Number" from the dropdown
