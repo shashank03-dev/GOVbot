@@ -1,111 +1,65 @@
-from playwright.async_api import async_playwright
+import google.generativeai as genai
+from gov_agent.config import GEMINI_API_KEY
+
+genai.configure(api_key=GEMINI_API_KEY)
+
+PM_KISAN_STATUS_URL = "https://pmkisan.gov.in/BeneficiaryStatus_New.aspx"
+PM_KISAN_REG_LOOKUP_URL = "https://pmkisan.gov.in/KnowYour_Registration.aspx"
+
+_SYSTEM_PROMPT = (
+    "You are a helpful Indian government services assistant. "
+    "The user wants to check their PM-KISAN beneficiary status. "
+    "The PM-KISAN portal now requires a Registration Number (not Aadhaar) "
+    "plus CAPTCHA and OTP to check status online. "
+    "Provide a concise, helpful reply that includes:\n"
+    "1. The latest PM-KISAN installment info (22nd installment released 13 March 2026, ₹2000 per installment, ₹6000/year)\n"
+    "2. How to check status: visit the portal link provided\n"
+    "3. If they don't know their registration number, they can look it up using Aadhaar at the registration lookup link\n"
+    "Keep the reply short and WhatsApp-friendly (no markdown, use emojis sparingly)."
+)
 
 
-async def check_pm_kisan_status(aadhaar: str) -> dict:
+async def check_pm_kisan_status(identifier: str) -> dict:
     """
-    Check PM-KISAN beneficiary status by Aadhaar number.
-    Scrapes the official PM-KISAN portal using headless Chromium.
+    Provide PM-KISAN status info using Gemini.
+    The official portal now requires Registration No + CAPTCHA + OTP,
+    so direct scraping is no longer possible.
     """
-    browser = None
     try:
-        pw = await async_playwright().start()
-        browser = await pw.chromium.launch(headless=True)
-        page = await browser.new_page()
-
-        await page.goto(
-            "https://pmkisan.gov.in/BeneficiaryStatus/BeneficiaryStatus_ja.aspx",
-            wait_until="domcontentloaded",
-            timeout=60000
+        model = genai.GenerativeModel("gemini-2.0-flash")
+        prompt = (
+            f"User provided identifier: {identifier}\n"
+            f"Portal link: {PM_KISAN_STATUS_URL}\n"
+            f"Registration lookup link: {PM_KISAN_REG_LOOKUP_URL}\n\n"
+            f"Generate a helpful WhatsApp reply for this farmer."
         )
-
-        # Select "Aadhaar Number" from the dropdown
-        await page.select_option(
-            "#ctl00_ContentPlaceHolder1_DropDownList1", value="A"
+        resp = model.generate_content(
+            [{"role": "user", "parts": [prompt]}],
+            generation_config={"temperature": 0.3, "max_output_tokens": 512},
+            system_instruction=_SYSTEM_PROMPT,
         )
-
-        # Fill the Aadhaar number
-        await page.fill(
-            "#ctl00_ContentPlaceHolder1_txtDataValue", aadhaar
-        )
-
-        # Click Get Data
-        await page.click("#ctl00_ContentPlaceHolder1_btnGetData")
-
-        # Wait for results to load
-        await page.wait_for_timeout(5000)
-
-        # Check if a result table exists
-        result_table = await page.query_selector("table.table")
-        if not result_table:
-            return {
-                "status": "not_found",
-                "message": "No beneficiary found",
-            }
-
-        # Extract all rows from the result table
-        rows = await result_table.query_selector_all("tr")
-
-        beneficiary_name = ""
-        father_name = ""
-        state = ""
-        district = ""
-        installments_count = 0
-        last_payment_amount = ""
-        last_payment_date = ""
-
-        # Parse header-value pairs from the top info rows
-        for row in rows:
-            cells = await row.query_selector_all("td")
-            cell_texts = []
-            for cell in cells:
-                text = (await cell.inner_text()).strip()
-                cell_texts.append(text)
-
-            row_text = " ".join(cell_texts).lower()
-
-            if "beneficiary name" in row_text or "farmer name" in row_text:
-                beneficiary_name = cell_texts[-1] if cell_texts else ""
-            elif "father" in row_text or "husband" in row_text:
-                father_name = cell_texts[-1] if cell_texts else ""
-            elif "state" in row_text:
-                state = cell_texts[-1] if cell_texts else ""
-            elif "district" in row_text:
-                district = cell_texts[-1] if cell_texts else ""
-
-        # Extract installment details from the payment table
-        payment_tables = await page.query_selector_all("table.table")
-        if len(payment_tables) > 1:
-            payment_table = payment_tables[-1]
-            payment_rows = await payment_table.query_selector_all("tr")
-            # Skip header row
-            data_rows = payment_rows[1:] if len(payment_rows) > 1 else []
-            installments_count = len(data_rows)
-
-            if data_rows:
-                last_row_cells = await data_rows[-1].query_selector_all("td")
-                last_row_texts = []
-                for cell in last_row_cells:
-                    text = (await cell.inner_text()).strip()
-                    last_row_texts.append(text)
-
-                if len(last_row_texts) >= 2:
-                    last_payment_amount = last_row_texts[-2]
-                    last_payment_date = last_row_texts[-1]
-
+        reply_text = resp.text.strip()
         return {
-            "beneficiary_name": beneficiary_name,
-            "father_name": father_name,
-            "state": state,
-            "district": district,
-            "installments_count": installments_count,
-            "last_payment_amount": last_payment_amount,
-            "last_payment_date": last_payment_date,
-            "status": "found",
+            "status": "info",
+            "message": reply_text,
+            "portal_url": PM_KISAN_STATUS_URL,
+            "reg_lookup_url": PM_KISAN_REG_LOOKUP_URL,
         }
 
     except Exception as e:
-        raise Exception(f"PM-KISAN status check failed: {str(e)}")
-
-    finally:
-        if browser:
-            await browser.close()
+        # Fallback static response if Gemini fails
+        return {
+            "status": "info",
+            "message": (
+                "ℹ️ PM-KISAN Status Check\n\n"
+                "The PM-KISAN portal now requires your Registration Number "
+                "(not Aadhaar) to check status.\n\n"
+                f"🔗 Check status: {PM_KISAN_STATUS_URL}\n\n"
+                f"Don't know your Registration No?\n"
+                f"🔗 Look it up: {PM_KISAN_REG_LOOKUP_URL}\n\n"
+                "Latest: 22nd installment released on 13 March 2026.\n"
+                "Each installment: ₹2,000 | Annual: ₹6,000"
+            ),
+            "portal_url": PM_KISAN_STATUS_URL,
+            "reg_lookup_url": PM_KISAN_REG_LOOKUP_URL,
+        }

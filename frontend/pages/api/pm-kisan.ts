@@ -6,10 +6,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const { aadhaar } = req.body;
+    const { identifier } = req.body;
+    const val = String(identifier || '').replace(/\s/g, '');
 
-    if (!aadhaar || !/^\d{12}$/.test(String(aadhaar))) {
-      return res.status(400).json({ error: 'Invalid Aadhaar' });
+    if (!/^\d{11,12}$/.test(val)) {
+      return res.status(400).json({ error: 'Enter a 12-digit Aadhaar or 11-digit Registration Number' });
     }
 
     const response = await fetch(`${process.env.NEXT_PUBLIC_RAILWAY_URL}/pm-kisan/status`, {
@@ -17,7 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ aadhaar }),
+      body: JSON.stringify({ identifier: val }),
     });
 
     const data = await response.json();

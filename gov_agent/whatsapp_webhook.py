@@ -4,7 +4,8 @@ from fastapi import APIRouter, Request, Query, HTTPException
 from fastapi.responses import PlainTextResponse, JSONResponse
 
 from gov_agent.config import WHATSAPP_VERIFY_TOKEN
-from gov_agent import session_manager, whatsapp_sender
+from gov_agent import whatsapp_sender
+from gov_agent import session_manager
 from gov_agent.models import WhatsAppIncoming
 
 logger = logging.getLogger(__name__)
@@ -36,29 +37,34 @@ async def verify_webhook(
 async def receive_message(request: Request):
     try:
         payload = await request.json()
-        messages = payload["entry"][0]["changes"][0]["value"]["messages"]
+        value = payload["entry"][0]["changes"][0]["value"]
+        if "messages" not in value:
+            return JSONResponse({"status": "ok"}, status_code=200)
+        messages = value["messages"]
         message = messages[0]
 
         phone = message["from"]
         msg_type = message["type"]
 
-        body = None
-        if msg_type == "text":
-            body = message["text"]["body"]
-
         media_id = None
-        if msg_type == "image":
-            media_id = message["image"]["id"]
+        message_text = None
 
-        msg = WhatsAppIncoming(
+        if msg_type == "text":
+            message_text = message["text"]["body"]
+        elif msg_type == "image":
+            media_id = message.get("image", {}).get("id")
+
+        incoming = WhatsAppIncoming(
             phone=phone,
-            message_type=msg_type,
-            body=body,
+            message_type=msg_type if msg_type in ("text", "image") else "text",
+            body=message_text,
             media_id=media_id
         )
 
-        reply = await session_manager.handle_incoming(msg)
-        await whatsapp_sender.send_message(phone, reply)
+        reply = await session_manager.handle_incoming(incoming)
+        logger.info(f"Sending reply to {phone}: {reply[:100]}")
+        result = await whatsapp_sender.send_message(phone, reply)
+        logger.info(f"WhatsApp send result: {result}")
 
     except Exception as e:
         logger.error(f"Webhook processing error: {e}", exc_info=True)

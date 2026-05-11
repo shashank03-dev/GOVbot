@@ -1,207 +1,196 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
+import AnimatedCounter from '@/components/AnimatedCounter';
+import StatusBadge from '@/components/StatusBadge';
+import { FileText, Clock, CheckCircle, XCircle, ExternalLink, ArrowRight } from 'lucide-react';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 type Application = {
   id: string;
-  phone: string;
   service: string;
   status: 'pending' | 'submitted' | 'failed';
+  confirmation_number?: string;
   submitted_at: string;
 };
 
-export default function UserDashboard() {
-  const [data, setData] = useState<Application[]>([]);
+export default function Dashboard() {
+  const [apps, setApps] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
-  const [phone, setPhone] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!mounted) return;
-
     const token = localStorage.getItem('govbot_token');
-    const storedPhone = localStorage.getItem('govbot_phone');
-
-    if (!token || !storedPhone) {
-      router.push('/');
+    if (!token) {
+      router.push('/login');
       return;
     }
 
-    setPhone(storedPhone);
-    fetchApplications(storedPhone);
-  }, [router, mounted]);
-
-  if (!mounted) return null;
-
-  const fetchApplications = async (userPhone: string) => {
-    try {
-      const { data: applications, error } = await supabase
-        .from('applications')
-        .select('*')
-        .eq('phone', userPhone)
-        .order('submitted_at', { ascending: false });
-
-      if (error) throw error;
-      
-      if (applications) {
-        setData(applications as Application[]);
-      }
-    } catch (error) {
-      console.error('Error fetching applications:', error);
-    } finally {
+    const phone = localStorage.getItem('govbot_phone');
+    if (!phone) {
       setLoading(false);
+      return;
     }
-  };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('phone');
-    router.push('/login');
-  };
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('applications')
+          .select('*')
+          .eq('phone', phone)
+          .order('submitted_at', { ascending: false });
 
-  const totalApplications = data.length;
-  const submittedCount = data.filter(app => app.status === 'submitted').length;
-  const pendingCount = data.filter(app => app.status === 'pending').length;
-  const failedCount = data.filter(app => app.status === 'failed').length;
+        if (error) throw error;
+        if (data) setApps(data as Application[]);
+      } catch (err) {
+        console.error('Error fetching applications:', err);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [router]);
 
-  const maskPhone = (p: string) => {
-    if (!p) return '';
-    const cleanPhone = p.replace(/[^0-9]/g, '');
-    const last4 = cleanPhone.slice(-4);
-    return `****${last4}`;
-  };
+  const totalApps = apps.length;
+  const submittedCount = apps.filter(a => a.status === 'submitted').length;
+  const pendingCount = apps.filter(a => a.status === 'pending').length;
+  const failedCount = apps.filter(a => a.status === 'failed').length;
+
+  const stats = [
+    { label: 'Total', value: totalApps, icon: FileText, color: '#ff9933', bg: '#fff7ed' },
+    { label: 'Submitted', value: submittedCount, icon: CheckCircle, color: '#0d9488', bg: '#f0fdfa' },
+    { label: 'Pending', value: pendingCount, icon: Clock, color: '#f59e0b', bg: '#fffbeb' },
+    { label: 'Failed', value: failedCount, icon: XCircle, color: '#ef4444', bg: '#fef2f2' },
+  ];
 
   const formatDate = (dateStr: string) => {
-    if (!dateStr) return '';
     const d = new Date(dateStr + 'Z');
-    const IST = new Date(d.getTime() + (5.5 * 60 * 60 * 1000));
+    const IST = new Date(d.getTime() + 5.5 * 60 * 60 * 1000);
     const pad = (n: number) => n.toString().padStart(2, '0');
     return `${pad(IST.getUTCDate())}/${pad(IST.getUTCMonth() + 1)}/${IST.getUTCFullYear()}, ${pad(IST.getUTCHours())}:${pad(IST.getUTCMinutes())}`;
   };
 
   return (
-    <div className="min-h-screen bg-[#000000] text-[#ffffff] font-mono rounded-none">
+    <>
       <Head>
-        <title>My Applications | GovBot</title>
+        <title>Dashboard | GovBot</title>
+        <meta name="description" content="View and manage your scholarship applications" />
       </Head>
 
-      {/* Header bar */}
-      <header className="w-full flex justify-between items-center p-4 border-b border-[#22c55e]/30 rounded-none bg-[#000000]">
-        <div>
-          <h1 className="text-xl font-bold text-[#22c55e]">My Applications</h1>
-          <p className="text-sm text-gray-400 mt-1">{maskPhone(phone || '')}</p>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        {/* Page header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+              My Dashboard
+            </h1>
+            <p className="text-sm text-slate-500 mt-1">Track and manage your scholarship applications</p>
+          </div>
+          <Link
+            href="/services"
+            className="hidden sm:inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#ff9933] to-[#e67e00] text-white text-sm font-semibold rounded-xl shadow-md shadow-orange-200/50 hover:shadow-orange-300/60 hover:-translate-y-0.5 transition-all"
+          >
+            Browse Services
+            <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
-        <button
-          onClick={handleLogout}
-          className="px-4 py-2 bg-[#0a0a0a] border border-[#22c55e]/30 hover:bg-[#111111] transition-colors text-sm rounded-none uppercase font-bold"
-        >
-          Logout
-        </button>
-      </header>
 
-      <main className="p-6 max-w-7xl mx-auto">
-        {/* Stats row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
-          <div className="border border-[#22c55e]/30 p-4 bg-[#0a0a0a] rounded-none">
-            <div className="text-sm text-gray-400 mb-2 mt-1 uppercase">Total</div>
-            <div className="text-3xl font-bold">{loading ? '-' : totalApplications}</div>
-          </div>
-          <div className="border border-[#22c55e]/30 p-4 bg-[#0a0a0a] rounded-none">
-            <div className="text-sm text-gray-400 mb-2 mt-1 uppercase">Submitted</div>
-            <div className="text-3xl font-bold text-green-500">{loading ? '-' : submittedCount}</div>
-          </div>
-          <div className="border border-[#22c55e]/30 p-4 bg-[#0a0a0a] rounded-none">
-            <div className="text-sm text-gray-400 mb-2 mt-1 uppercase">Pending</div>
-            <div className="text-3xl font-bold text-yellow-500">{loading ? '-' : pendingCount}</div>
-          </div>
-          <div className="border border-[#22c55e]/30 p-4 bg-[#0a0a0a] rounded-none">
-            <div className="text-sm text-gray-400 mb-2 mt-1 uppercase">Failed</div>
-            <div className="text-3xl font-bold text-red-500">{loading ? '-' : failedCount}</div>
-          </div>
+        {/* Stats grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          {stats.map((stat, index) => {
+            const Icon = stat.icon;
+            return (
+              <motion.div
+                key={stat.label}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.08 }}
+                className="bg-white border border-slate-100 rounded-2xl p-5 hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-center gap-2.5 mb-3">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: stat.bg }}>
+                    <Icon className="w-4.5 h-4.5" style={{ color: stat.color }} />
+                  </div>
+                  <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">{stat.label}</span>
+                </div>
+                <div className="text-3xl font-bold text-slate-900">
+                  {loading ? '-' : <AnimatedCounter end={stat.value} />}
+                </div>
+              </motion.div>
+            );
+          })}
         </div>
 
         {/* Applications table */}
-        <div className="w-full border border-[#22c55e]/30 rounded-none overflow-x-auto bg-[#000000]">
-          <table className="w-full border-collapse min-w-[600px]">
-            <thead>
-              <tr className="bg-[#0a0a0a] text-green-500 uppercase text-sm border-b border-[#22c55e]/30">
-                <th className="p-4 text-left font-normal border-r border-[#22c55e]/10">Service</th>
-                <th className="p-4 text-left font-normal border-r border-[#22c55e]/10">Status</th>
-                <th className="p-4 text-left font-normal border-r border-[#22c55e]/10">Confirmation</th>
-                <th className="p-4 text-left font-normal border-r border-[#22c55e]/10">Submitted At</th>
-                <th className="p-4 text-left font-normal">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                // Skeleton loading rows
-                [...Array(3)].map((_, i) => (
-                  <tr key={i} className="border-b border-[#22c55e]/30">
-                    <td className="p-4 border-r border-[#22c55e]/10"><div className="h-4 bg-[#111111] animate-pulse w-32"></div></td>
-                    <td className="p-4 border-r border-[#22c55e]/10"><div className="h-6 bg-[#111111] animate-pulse w-20"></div></td>
-                    <td className="p-4 border-r border-[#22c55e]/10"><div className="h-4 bg-[#111111] animate-pulse w-24"></div></td>
-                    <td className="p-4 border-r border-[#22c55e]/10"><div className="h-4 bg-[#111111] animate-pulse w-36"></div></td>
-                    <td className="p-4"><div className="h-4 bg-[#111111] animate-pulse w-16"></div></td>
+        <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <h2 className="text-base font-semibold text-slate-900">Recent Applications</h2>
+            <span className="text-xs font-medium text-slate-400 bg-slate-50 px-2.5 py-1 rounded-full">{apps.length} total</span>
+          </div>
+
+          {loading ? (
+            <div className="p-8 text-center text-slate-400">Loading applications...</div>
+          ) : apps.length === 0 ? (
+            <div className="p-12 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-orange-50 flex items-center justify-center mx-auto mb-4">
+                <FileText className="w-7 h-7 text-[#ff9933]" />
+              </div>
+              <p className="text-slate-500 mb-4">No applications yet</p>
+              <Link
+                href="/services"
+                className="inline-flex items-center gap-2 text-sm font-medium text-[#ff9933] hover:text-[#e67e00] transition-colors"
+              >
+                Browse Services <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-100">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Service</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Confirmation</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Submitted</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>
                   </tr>
-                ))
-              ) : data.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="p-12 text-center border-b border-[#22c55e]/30">
-                    <div className="space-y-4">
-                      <p className="text-gray-400 text-lg">No applications yet.</p>
-                      <p className="text-sm">Message GovBot on WhatsApp to get started!</p>
-                      <a 
-                        href="https://wa.me/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-block mt-4 px-6 py-2 bg-[#22c55e] text-black font-bold uppercase hover:bg-[#1fa951] transition-colors rounded-none"
-                      >
-                        Message on WhatsApp
-                      </a>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                data.map((app) => (
-                  <tr key={app.id} className="border-b border-[#22c55e]/30 hover:bg-[#111111] transition-colors">
-                    <td className="p-4 border-r border-[#22c55e]/10">{app.service}</td>
-                    <td className="p-4 border-r border-[#22c55e]/10">
-                      <span className={`px-2 py-1 text-xs font-bold rounded-none ${
-                        app.status === 'pending' ? 'bg-yellow-500 text-black' :
-                        app.status === 'submitted' ? 'bg-green-500 text-black' :
-                        'bg-red-500 text-white'
-                      }`}>
-                        {app.status}
-                      </span>
-                    </td>
-                    <td className="p-4 border-r border-[#22c55e]/10 font-mono text-sm">{app.id}</td>
-                    <td className="p-4 border-r border-[#22c55e]/10 text-sm text-gray-300">{formatDate(app.submitted_at)}</td>
-                    <td className="p-4">
-                      <Link 
-                        href={`/track/${app.id}`}
-                        className="text-[#22c55e] hover:text-green-400 underline underline-offset-4 text-sm uppercase font-bold"
-                      >
-                        Track &rarr;
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {apps.map((app) => (
+                    <tr key={app.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-6 py-4 text-sm font-medium text-slate-900">{app.service}</td>
+                      <td className="px-6 py-4">
+                        <StatusBadge status={app.status} size="sm" />
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-500 font-mono">
+                        {app.confirmation_number || '—'}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-500">
+                        {formatDate(app.submitted_at)}
+                      </td>
+                      <td className="px-6 py-4">
+                        {app.confirmation_number && (
+                          <Link
+                            href={`/track/${app.confirmation_number}`}
+                            className="inline-flex items-center gap-1.5 text-sm font-medium text-[#ff9933] hover:text-[#e67e00] transition-colors"
+                          >
+                            Track <ExternalLink className="w-3.5 h-3.5" />
+                          </Link>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-      </main>
-    </div>
+      </div>
+    </>
   );
 }

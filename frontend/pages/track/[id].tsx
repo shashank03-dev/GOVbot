@@ -1,42 +1,141 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import Link from 'next/link';
 
-let supabase: SupabaseClient | null = null;
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-if (typeof window !== 'undefined') {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (url && key) {
-    supabase = createClient(url, key);
-  }
+interface TimelineStep {
+  step: string;
+  icon: string;
+  date: string | null;
+  est_date: string | null;
+  done: boolean;
 }
+
+interface AppData {
+  confirmation_number: string;
+  service: string;
+  status: string;
+  portal: string;
+  submitted_at: string;
+  timeline_steps: TimelineStep[];
+}
+
+const DEFAULT_STEPS: TimelineStep[] = [
+  { step: 'Applied',      icon: '📝', date: null, est_date: null, done: false },
+  { step: 'Under Review', icon: '🔍', date: null, est_date: null, done: false },
+  { step: 'Approved',     icon: '✅', date: null, est_date: null, done: false },
+  { step: 'Disbursed',    icon: '💰', date: null, est_date: null, done: false },
+];
+
+function formatDate(s: string | null): string {
+  if (!s) return '';
+  const d = new Date(s.includes('T') ? s + 'Z' : s);
+  const IST = new Date(d.getTime() + (s.includes('T') ? 5.5 * 3600000 : 0));
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${pad(IST.getUTCDate())}/${pad(IST.getUTCMonth() + 1)}/${IST.getUTCFullYear()}`;
+}
+
+function StepNode({ step, index, isCurrent, total }: { step: TimelineStep; index: number; isCurrent: boolean; total: number }) {
+  const isLast = index === total - 1;
+
+  const circleClass = step.done
+    ? 'bg-green-500 border-green-500'
+    : isCurrent
+      ? 'bg-transparent border-blue-400 animate-pulse'
+      : 'bg-transparent border-gray-600 border-dashed';
+
+  const labelClass = step.done ? 'text-white font-semibold' : isCurrent ? 'text-blue-400 font-semibold' : 'text-gray-500';
+
+  return (
+    <div className="flex flex-col items-center flex-1 relative">
+      {/* Connector line (left side, skip on first) */}
+      {index > 0 && (
+        <div
+          className={`hidden md:block absolute top-6 right-1/2 w-full h-0.5 ${
+            step.done ? 'bg-green-500' : 'bg-gray-700'
+          }`}
+          style={{ zIndex: 0 }}
+        />
+      )}
+
+      {/* Circle */}
+      <div
+        className={`relative z-10 w-12 h-12 rounded-full border-2 flex items-center justify-center text-xl ${circleClass}`}
+        style={{ minWidth: '3rem' }}
+      >
+        {step.done ? '✓' : step.icon}
+        {isCurrent && (
+          <span className="absolute inset-0 rounded-full border-2 border-blue-400 animate-ping opacity-60" />
+        )}
+      </div>
+
+      {/* Label */}
+      <span className={`mt-2 text-xs text-center ${labelClass}`}>{step.step}</span>
+
+      {/* Date */}
+      {step.date ? (
+        <span className="text-xs text-green-400 mt-1">{formatDate(step.date)}</span>
+      ) : step.est_date ? (
+        <span className="text-xs text-gray-500 mt-1 italic">~{formatDate(step.est_date)}</span>
+      ) : null}
+    </div>
+  );
+}
+
+function VerticalStepNode({ step, isCurrent }: { step: TimelineStep; isCurrent: boolean }) {
+  const circleClass = step.done
+    ? 'bg-green-500 border-green-500 text-white'
+    : isCurrent
+      ? 'bg-transparent border-blue-400 text-blue-400 animate-pulse'
+      : 'bg-transparent border-gray-600 border-dashed text-gray-500';
+
+  return (
+    <div className="flex items-start gap-4">
+      <div className="flex flex-col items-center">
+        <div className={`relative w-10 h-10 rounded-full border-2 flex items-center justify-center text-lg flex-shrink-0 ${circleClass}`}>
+          {step.done ? '✓' : step.icon}
+          {isCurrent && <span className="absolute inset-0 rounded-full border-2 border-blue-400 animate-ping opacity-60" />}
+        </div>
+        <div className="w-0.5 h-8 bg-gray-700 mt-1 last:hidden" />
+      </div>
+      <div className="pb-8">
+        <p className={`font-semibold text-sm ${step.done ? 'text-white' : isCurrent ? 'text-blue-400' : 'text-gray-500'}`}>
+          {step.step}
+        </p>
+        {step.date ? (
+          <p className="text-xs text-green-400">{formatDate(step.date)}</p>
+        ) : step.est_date ? (
+          <p className="text-xs text-gray-500 italic">Est. {formatDate(step.est_date)}</p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+const PORTAL_LABELS: Record<string, string> = {
+  nsp: 'NSP',
+  pmss: 'PMSS',
+  csss: 'CSSS',
+  minority: 'Minority',
+};
 
 export default function TrackApplication() {
   const router = useRouter();
   const { id } = router.query;
-  const [app, setApp] = useState<any>(null);
+  const [app, setApp] = useState<AppData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!router.isReady) return;
-    if (!id) return;
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
+    if (!router.isReady || !id) return;
 
     const fetchApplication = async () => {
       try {
-        const { data, error } = await supabase!
-          .from('applications')
-          .select('*')
-          .eq('confirmation_number', id);
-        if (error) throw error;
-        setApp(data?.[0] || null);
-      } catch (error) {
-        console.error('Error fetching application:', error);
+        const res = await fetch(`${API_BASE}/applications/${id}/timeline`);
+        if (!res.ok) { setApp(null); return; }
+        const data: AppData = await res.json();
+        setApp(data);
+      } catch {
         setApp(null);
       } finally {
         setLoading(false);
@@ -44,32 +143,18 @@ export default function TrackApplication() {
     };
 
     fetchApplication();
-    const timer = setInterval(fetchApplication, 60000);
+    const timer = setInterval(fetchApplication, 30000);
     return () => clearInterval(timer);
   }, [router.isReady, id]);
 
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return '';
-    const d = new Date(dateStr + 'Z');
-    const IST = new Date(d.getTime() + 5.5 * 60 * 60 * 1000);
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    return `${pad(IST.getUTCDate())}/${pad(IST.getUTCMonth() + 1)}/${IST.getUTCFullYear()} ${pad(IST.getUTCHours())}:${pad(IST.getUTCMinutes())}`;
-  };
-
-  const maskPhone = (phone: string) =>
-    phone ? `****${String(phone).slice(-4)}` : '****XXXX';
-
   if (!router.isReady || loading) {
     return (
-      <div className="min-h-screen bg-black font-mono text-white flex items-center justify-center p-4">
-        <div className="w-full max-w-md animate-pulse space-y-6">
-          <div className="h-4 bg-gray-800 w-32 mx-auto"></div>
-          <div className="h-8 bg-gray-800 w-48 mx-auto"></div>
-          <div className="h-24 bg-gray-800 w-full"></div>
-          <div className="space-y-3">
-            <div className="h-4 bg-gray-800 w-full"></div>
-            <div className="h-4 bg-gray-800 w-3/4"></div>
-            <div className="h-4 bg-gray-800 w-1/2"></div>
+      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center p-4">
+        <div className="w-full max-w-2xl animate-pulse space-y-6">
+          <div className="h-4 bg-gray-800 w-40 mx-auto rounded" />
+          <div className="h-8 bg-gray-800 w-64 mx-auto rounded" />
+          <div className="flex justify-around mt-10">
+            {[0,1,2,3].map(i => <div key={i} className="h-20 w-20 bg-gray-800 rounded-full" />)}
           </div>
         </div>
       </div>
@@ -78,13 +163,13 @@ export default function TrackApplication() {
 
   if (!app) {
     return (
-      <div className="min-h-screen bg-black font-mono text-white flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center p-4">
         <div className="text-center space-y-4">
           <div className="text-6xl mb-6">❌</div>
-          <h1 className="text-2xl text-red-500 font-bold">Application Not Found</h1>
+          <h1 className="text-2xl text-red-400 font-bold">Application Not Found</h1>
           <p className="text-gray-400">Check your confirmation number and try again.</p>
           <div className="pt-6">
-            <Link href="/track" className="text-green-500 hover:text-green-400 border border-green-500 px-6 py-2 transition-colors">
+            <Link href="/track" className="text-blue-400 hover:text-blue-300 border border-blue-500 px-6 py-2 rounded transition-colors">
               ← Search Again
             </Link>
           </div>
@@ -93,60 +178,67 @@ export default function TrackApplication() {
     );
   }
 
-  const statusConfig: Record<string, { bg: string; text: string; label: string }> = {
-    submitted: { bg: 'bg-green-500', text: 'text-black', label: '✅ SUBMITTED' },
-    pending:   { bg: 'bg-yellow-500', text: 'text-black', label: '⏳ PENDING' },
-    failed:    { bg: 'bg-red-500', text: 'text-white', label: '❌ FAILED' },
-  };
+  const steps: TimelineStep[] = app.timeline_steps?.length ? app.timeline_steps : DEFAULT_STEPS;
+  const currentIndex = steps.reduce((acc, s, i) => (s.done ? i : acc), -1) + 1;
+  const isCurrent = (i: number) => i === currentIndex && currentIndex < steps.length;
 
-  const status = statusConfig[app.status] ?? { bg: 'bg-gray-500', text: 'text-white', label: app.status?.toUpperCase() };
+  const portalLabel = PORTAL_LABELS[app.portal] ?? app.portal?.toUpperCase() ?? 'NSP';
+  const whatsappLink = `https://wa.me/919999999999?text=Status+of+${app.confirmation_number}`;
 
   return (
-    <div className="min-h-screen bg-black font-mono text-white p-4">
-      <div className="max-w-md mx-auto pt-16">
+    <div className="min-h-screen bg-gray-950 text-white">
+      <div className="max-w-3xl mx-auto px-4 py-10">
 
         {/* Header */}
         <div className="mb-2">
-          <Link href="/" className="text-green-500 text-xs hover:text-green-400">⚡ GovBot</Link>
+          <Link href="/" className="text-blue-400 text-sm hover:text-blue-300">⚡ GovBot</Link>
         </div>
 
-        {/* Confirmation Number */}
-        <div className="mb-8 border border-gray-800 p-4">
-          <div className="text-xs text-green-500 tracking-widest mb-2 uppercase">
-            Confirmation Number
+        {/* Top meta */}
+        <div className="bg-gray-900 rounded-xl p-6 mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">Confirmation Number</p>
+            <p className="text-lg font-mono font-bold text-white break-all">{app.confirmation_number}</p>
+            <p className="text-sm text-gray-400 mt-1">{app.service}</p>
           </div>
-          <div className="text-xl break-all text-white">{id}</div>
+          <div className="flex flex-col items-start sm:items-end gap-2">
+            <span className="text-xs font-semibold bg-indigo-700 text-white px-3 py-1 rounded-full">{portalLabel}</span>
+            {app.submitted_at && (
+              <span className="text-xs text-gray-400">Submitted {formatDate(app.submitted_at)}</span>
+            )}
+          </div>
         </div>
 
-        {/* Status Badge */}
-        <div className={`${status.bg} ${status.text} text-3xl py-6 px-8 font-bold text-center mb-8`}>
-          {status.label}
+        {/* Desktop horizontal timeline */}
+        <div className="hidden md:flex items-start justify-between bg-gray-900 rounded-xl p-8 mb-8 relative">
+          {steps.map((step, i) => (
+            <StepNode key={i} step={step} index={i} isCurrent={isCurrent(i)} total={steps.length} />
+          ))}
         </div>
 
-        {/* Details */}
-        <div className="border border-gray-800 divide-y divide-gray-800">
-          <div className="flex justify-between p-4">
-            <span className="text-gray-500">Service</span>
-            <span>{app.service || '-'}</span>
-          </div>
-          <div className="flex justify-between p-4">
-            <span className="text-gray-500">Submitted</span>
-            <span>{formatDate(app.submitted_at)}</span>
-          </div>
-          <div className="flex justify-between p-4">
-            <span className="text-gray-500">Phone</span>
-            <span>{maskPhone(app.phone)}</span>
-          </div>
+        {/* Mobile vertical timeline */}
+        <div className="md:hidden bg-gray-900 rounded-xl p-6 mb-8">
+          {steps.map((step, i) => (
+            <VerticalStepNode key={i} step={step} isCurrent={isCurrent(i)} />
+          ))}
+        </div>
+
+        {/* Need help */}
+        <div className="text-center mt-8">
+          <a
+            href={whatsappLink}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-500 text-white font-semibold px-6 py-3 rounded-full transition-colors"
+          >
+            💬 Need help? Chat on WhatsApp
+          </a>
         </div>
 
         {/* Footer links */}
-        <div className="mt-12 flex justify-between text-sm">
-          <Link href="/track" className="text-green-500 hover:text-green-400">
-            ← Check another
-          </Link>
-          <Link href="/dashboard" className="text-green-500 hover:text-green-400">
-            My Applications →
-          </Link>
+        <div className="mt-8 flex justify-between text-sm">
+          <Link href="/track" className="text-blue-400 hover:text-blue-300">← Check another</Link>
+          <Link href="/dashboard" className="text-blue-400 hover:text-blue-300">My Applications →</Link>
         </div>
 
       </div>

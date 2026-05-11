@@ -10,7 +10,7 @@ python-dotenv
 supabase
 google-generativeai
 pydantic
-anthropic
 python-multipart
 aiofiles
 python-jose[cryptography]
+twilio

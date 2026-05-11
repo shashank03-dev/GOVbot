@@ -3,12 +3,16 @@ from datetime import datetime
 from langgraph.graph import StateGraph, END
 from gov_agent import portal_agent
 import asyncio
+import hashlib
 
 class ApplicationState(TypedDict):
     name: str
     dob: str
     income: int
+    aadhaar_number: str
+    phone: str
     media_id: str
+    portal: str
     doc_path: str
     eligible: bool
     missing_fields: List[str]
@@ -19,6 +23,32 @@ class ApplicationState(TypedDict):
 async def check_completeness(state: ApplicationState) -> ApplicationState:
     required = ["name", "dob", "income", "media_id"]
     state["missing_fields"] = [k for k in required if not state.get(k)]
+
+    # FRAUD DETECTION: run early, before eligibility check
+    aadhaar = state.get("aadhaar_number", "")
+    if aadhaar and not state.get("missing_fields"):
+        from gov_agent.db import supabase
+        aadhaar_hash = hashlib.sha256(aadhaar.encode()).hexdigest()
+        phone = state.get("phone") or state.get("media_id", "unknown")
+        try:
+            existing = supabase.table("fraud_flags").select("*").eq("aadhaar_hash", aadhaar_hash).execute()
+            if existing.data:
+                known_phones = existing.data[0].get("phones", [])
+                if phone not in known_phones:
+                    supabase.table("fraud_flags").update({
+                        "phones": known_phones + [phone],
+                        "flagged_at": datetime.now().isoformat()
+                    }).eq("aadhaar_hash", aadhaar_hash).execute()
+                    state["error"] = "Duplicate Aadhaar detected across multiple phone numbers. Application blocked."
+                    state["missing_fields"] = ["__fraud__"]
+            else:
+                supabase.table("fraud_flags").insert({
+                    "aadhaar_hash": aadhaar_hash,
+                    "phones": [phone],
+                    "portal": state.get("portal", "nsp")
+                }).execute()
+        except Exception as fraud_err:
+            pass  # never block a legitimate application on DB error
     return state
 
 
@@ -46,23 +76,32 @@ async def execute_application(state: ApplicationState) -> ApplicationState:
     try:
         import random
         import string
-        import asyncio
         from gov_agent.db import supabase
-        
-        await asyncio.sleep(10)
-        
+
         conf = ''.join(random.choices(
             string.ascii_uppercase + string.digits, k=12))
         confirmation = f"NSP2026{conf}"
-        
+
+        today = datetime.now()
+        fmt = lambda d: d.strftime("%Y-%m-%d")
+        from datetime import timedelta
+        timeline_steps = [
+            {"step": "Applied",      "icon": "📝", "date": fmt(today),                "est_date": fmt(today),                 "done": True},
+            {"step": "Under Review", "icon": "🔍", "date": None,                       "est_date": fmt(today + timedelta(days=7)),  "done": False},
+            {"step": "Approved",     "icon": "✅", "date": None,                       "est_date": fmt(today + timedelta(days=14)), "done": False},
+            {"step": "Disbursed",    "icon": "💰", "date": None,                       "est_date": fmt(today + timedelta(days=21)), "done": False},
+        ]
+
         # Save to Supabase applications table
         supabase.table("applications").insert({
-            "phone": state.get("media_id", "unknown"),
+            "phone": state.get("phone") or state.get("media_id", "unknown"),
             "confirmation_number": confirmation,
             "service": "NSP Scholarship",
-            "status": "submitted"
+            "status": "submitted",
+            "portal": "nsp",
+            "timeline_steps": timeline_steps,
         }).execute()
-        
+
         state["submission_result"] = {
             "status": "success",
             "confirmation_number": confirmation
@@ -109,6 +148,9 @@ async def run_application(data: dict) -> dict:
         name=data.get("name", ""),
         dob=data.get("dob", ""),
         income=int(data.get("income", 0)) if data.get("income") else 0,
+        aadhaar_number=data.get("aadhaar_number", ""),
+        phone=data.get("phone", ""),
+        portal=data.get("portal", "nsp"),
         media_id=data.get("media_id", ""),
         doc_path="",
         eligible=False,

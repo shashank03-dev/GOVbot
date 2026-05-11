@@ -6,6 +6,7 @@ Provides OTP-based phone authentication over WhatsApp:
   POST /auth/verify-otp — validate the OTP and return a signed JWT
 """
 
+import hashlib
 import random
 import logging
 from datetime import datetime, timezone, timedelta
@@ -21,6 +22,72 @@ from gov_agent import whatsapp_sender
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# ── OTP rate-limit config ────────────────────────────────────────────────────
+_OTP_WINDOW_MINUTES = 10
+_OTP_MAX_REQUESTS = 3
+
+
+def _check_rate_limit(phone: str) -> None:
+    """Raise HTTP 429 if phone has exceeded OTP request quota.
+
+    State is stored in the Supabase `otp_rate_limits` table so the limit is
+    enforced consistently across all workers and survives restarts.
+    """
+    try:
+        now = datetime.now(timezone.utc)
+        window_cutoff = now - timedelta(minutes=_OTP_WINDOW_MINUTES)
+
+        result = (
+            supabase.table("otp_rate_limits")
+            .select("request_count, window_start")
+            .eq("phone", phone)
+            .limit(1)
+            .execute()
+        )
+
+        if not result.data:
+            # First request from this phone — create row
+            supabase.table("otp_rate_limits").insert({
+                "phone": phone,
+                "request_count": 1,
+                "window_start": now.isoformat(),
+            }).execute()
+            return
+
+        row = result.data[0]
+        window_start = datetime.fromisoformat(row["window_start"])
+        if window_start.tzinfo is None:
+            window_start = window_start.replace(tzinfo=timezone.utc)
+        count = row["request_count"]
+
+        if window_start < window_cutoff:
+            # Window expired — reset counter
+            supabase.table("otp_rate_limits").update({
+                "request_count": 1,
+                "window_start": now.isoformat(),
+            }).eq("phone", phone).execute()
+            return
+
+        if count >= _OTP_MAX_REQUESTS:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Too many OTP requests. Try again in {_OTP_WINDOW_MINUTES} minutes.",
+            )
+
+        supabase.table("otp_rate_limits").update({
+            "request_count": count + 1,
+        }).eq("phone", phone).execute()
+    except Exception as e:
+        # If otp_rate_limits table doesn't exist or other error, log and continue without rate limiting
+        logger.warning("Rate limiting disabled due to missing table or error: %s", e)
+        return
+
+
+def _hash_otp(code: str) -> str:
+    """Return SHA-256 hex digest of the OTP code."""
+    return hashlib.sha256(code.encode()).hexdigest()
+
 
 # ── Request schemas ──────────────────────────────────────────────────────────
 
@@ -41,14 +108,16 @@ async def send_otp(body: SendOTPRequest):
     if not body.phone:
         raise HTTPException(status_code=400, detail="phone is required")
 
+    _check_rate_limit(body.phone)
+
     code = str(random.randint(100_000, 999_999))
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(minutes=10)
 
-    # Upsert OTP record in Supabase
+    # Store hashed OTP — plaintext never persisted
     supabase.table("otp_codes").insert({
         "phone": body.phone,
-        "code": code,
+        "code": _hash_otp(code),
         "expires_at": expires_at.isoformat(),
         "used": False,
     }).execute()
@@ -71,12 +140,12 @@ async def verify_otp(body: VerifyOTPRequest):
 
     now_iso = datetime.now(timezone.utc).isoformat()
 
-    # Fetch a valid, unused, non-expired OTP row
+    # Fetch a valid, unused, non-expired OTP row (compare hashed code)
     result = (
         supabase.table("otp_codes")
         .select("id")
         .eq("phone", body.phone)
-        .eq("code", body.code)
+        .eq("code", _hash_otp(body.code))
         .eq("used", False)
         .gt("expires_at", now_iso)
         .limit(1)

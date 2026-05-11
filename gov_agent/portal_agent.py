@@ -1,4 +1,3 @@
-import asyncio
 import re
 from pathlib import Path
 from typing import Tuple
@@ -54,15 +53,13 @@ async def download_media(media_id: str, save_path: str) -> str:
 
 
 async def fill_scholarship_form(page: Page, data: dict) -> None:
-    # MOCK: Simulate form filling delay
-    await asyncio.sleep(5)
+    # MOCK: Real form-fill automation not yet implemented (concern #1)
     Path("/tmp/screenshots").mkdir(parents=True, exist_ok=True)
 
 
 
 async def submit_and_capture(page: Page) -> dict:
-    # MOCK: Simulate submission delay + return fake confirmation
-    await asyncio.sleep(10)
+    # MOCK: Real portal submission not yet implemented (concern #1)
     import random
     import string
     conf = ''.join(random.choices(

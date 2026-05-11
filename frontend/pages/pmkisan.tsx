@@ -1,32 +1,29 @@
 import React, { useState } from 'react';
 import Head from 'next/head';
+import Link from 'next/link';
+import { motion } from 'framer-motion';
+import { Sprout, ArrowLeft, ExternalLink } from 'lucide-react';
 
-type StatusState = 'aadhaar' | 'loading' | 'result' | 'error';
+type StatusState = 'input' | 'loading' | 'result' | 'error';
 
 interface PmKisanResult {
-  name?: string;
-  fatherName?: string;
-  state?: string;
-  district?: string;
-  installmentsCount?: number | string;
-  lastPaymentAmount?: string;
-  lastPaymentDate?: string;
-  statusBadge?: string;
-  // Fallbacks in case api returns different keys
-  beneficiaryName?: string;
-  installmentsReceived?: string | number;
+  status?: string;
+  message?: string;
+  portal_url?: string;
+  reg_lookup_url?: string;
 }
 
 export default function PmKisanChecker() {
-  const [state, setState] = useState<StatusState>('aadhaar');
-  const [aadhaar, setAadhaar] = useState('');
+  const [state, setState] = useState<StatusState>('input');
+  const [identifier, setIdentifier] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [result, setResult] = useState<PmKisanResult | null>(null);
 
   const handleCheckStatus = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (aadhaar.length !== 12 || !/^\d{12}$/.test(aadhaar)) {
-      setErrorMsg('Aadhaar number must be exactly 12 digits.');
+    const val = identifier.replace(/\s/g, '');
+    if (!/^\d{11,12}$/.test(val)) {
+      setErrorMsg('Enter a 12-digit Aadhaar or 11-digit Registration Number.');
       return;
     }
 
@@ -36,172 +33,130 @@ export default function PmKisanChecker() {
     try {
       const res = await fetch('/api/pm-kisan', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ aadhaar }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: val }),
       });
-
-      if (!res.ok) {
-        if (res.status === 404 || res.status === 400) {
-          setState('error');
-          setErrorMsg('❌ No beneficiary found for this Aadhaar number');
-          return;
-        }
-        throw new Error('Failed to fetch status');
-      }
-
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Lookup failed');
       setResult(data);
       setState('result');
     } catch (err: any) {
+      setErrorMsg(err.message || 'Something went wrong');
       setState('error');
-      setErrorMsg(err.message || 'An error occurred while fetching status.');
     }
   };
 
   const handleReset = () => {
-    setAadhaar('');
-    setResult(null);
+    setState('input');
+    setIdentifier('');
     setErrorMsg('');
-    setState('aadhaar');
+    setResult(null);
   };
 
   return (
-    <div className="min-h-screen bg-black font-mono text-white flex flex-col items-center justify-center p-4">
+    <>
       <Head>
-        <title>PM Kisan Status Checker</title>
+        <title>PM Kisan Status | GovBot</title>
+        <meta name="description" content="Check your PM Kisan beneficiary payment status" />
       </Head>
-      <div className="w-full max-w-md border border-[#22c55e] p-8">
-        <h1 className="text-xl mb-2 text-[#22c55e] font-bold border-b border-[#22c55e] pb-4">
-          🌾 PM Kisan Beneficiary Status
-        </h1>
-        
-        {state === 'aadhaar' && (
-          <>
-            <p className="mb-6 text-sm text-gray-400">
-              Check your PM Kisan Samman Nidhi installment status instantly
-            </p>
-            {errorMsg && (
-              <div className="mb-6 p-4 border border-red-500 text-red-500 bg-red-500/10">
-                {'> ERROR: '}{errorMsg}
+
+      <div className="max-w-xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+        <Link href="/services" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-[#ff9933] transition-colors mb-6">
+          <ArrowLeft className="w-3.5 h-3.5" /> Back to Services
+        </Link>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <div className="bg-white rounded-2xl shadow-lg shadow-slate-200/50 border border-slate-100 p-8">
+            <div className="text-center mb-8">
+              <div className="w-14 h-14 rounded-2xl bg-green-50 flex items-center justify-center mx-auto mb-4">
+                <Sprout className="w-7 h-7 text-green-600" />
               </div>
+              <h1 className="text-2xl font-bold text-slate-900" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+                PM Kisan Status
+              </h1>
+              <p className="text-sm text-slate-500 mt-1.5">Enter your Aadhaar or PM Kisan Registration Number</p>
+            </div>
+
+            {(state === 'input' || state === 'loading' || state === 'error') && (
+              <form onSubmit={handleCheckStatus} className="space-y-5">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Aadhaar / Registration No.</label>
+                  <input
+                    type="text"
+                    value={identifier}
+                    onChange={e => { setIdentifier(e.target.value); setErrorMsg(''); }}
+                    placeholder="Enter 12-digit Aadhaar or 11-digit Reg No."
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all"
+                    autoFocus
+                  />
+                </div>
+
+                {errorMsg && (
+                  <p className="text-sm text-red-500 bg-red-50 border border-red-100 rounded-xl px-3.5 py-2.5">{errorMsg}</p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={state === 'loading' || !identifier.trim()}
+                  className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold rounded-xl shadow-md shadow-green-200/50 hover:shadow-green-300/60 hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0 transition-all text-sm"
+                >
+                  {state === 'loading' ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    'Check Status'
+                  )}
+                </button>
+              </form>
             )}
-            <form onSubmit={handleCheckStatus} className="space-y-6">
-              <div className="space-y-2">
-                <label htmlFor="aadhaar" className="block text-sm text-[#22c55e]">
-                  {'>'} ENTER 12-DIGIT AADHAAR NUMBER
-                </label>
-                <input
-                  id="aadhaar"
-                  type="tel"
-                  value={aadhaar}
-                  onChange={(e) => setAadhaar(e.target.value.replace(/\D/g, '').slice(0, 12))}
-                  placeholder="XXXX XXXX XXXX"
-                  maxLength={12}
-                  className="w-full bg-black border border-gray-600 p-3 text-white focus:outline-none focus:border-[#22c55e] placeholder-gray-700 transition-colors"
-                  required
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={aadhaar.length !== 12}
-                className="w-full bg-transparent border border-[#22c55e] text-[#22c55e] font-bold py-3 px-4 hover:bg-[#22c55e] hover:text-black disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-[#22c55e] uppercase tracking-widest transition-colors"
+
+            {state === 'result' && result && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-5"
               >
-                CHECK STATUS
-              </button>
-            </form>
-          </>
-        )}
+                <div className="bg-green-50 border border-green-100 rounded-xl p-5 whitespace-pre-wrap text-sm text-slate-700 leading-relaxed">
+                  {result.message}
+                </div>
 
-        {state === 'loading' && (
-          <div className="py-12 text-center text-[#22c55e] animate-pulse">
-            FETCHING BENEFICIARY DATA...
+                <div className="space-y-3">
+                  {result.portal_url && (
+                    <a
+                      href={result.portal_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold rounded-xl shadow-md text-sm hover:-translate-y-0.5 transition-all"
+                    >
+                      Check on Portal <ExternalLink className="w-4 h-4" />
+                    </a>
+                  )}
+                  {result.reg_lookup_url && (
+                    <a
+                      href={result.reg_lookup_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-white border border-slate-200 text-slate-700 font-semibold rounded-xl text-sm hover:border-green-400 hover:text-green-600 transition-all"
+                    >
+                      Find Registration Number <ExternalLink className="w-4 h-4" />
+                    </a>
+                  )}
+                </div>
+
+                <button
+                  onClick={handleReset}
+                  className="w-full py-3 px-4 bg-slate-50 border border-slate-200 text-slate-600 font-medium rounded-xl text-sm hover:bg-slate-100 transition-colors"
+                >
+                  Check Another
+                </button>
+              </motion.div>
+            )}
           </div>
-        )}
-
-        {state === 'error' && (
-          <div className="space-y-6 mt-6">
-            <div className="p-4 border border-red-500 text-red-500 bg-red-500/10 text-center">
-              {errorMsg}
-            </div>
-            <button
-              onClick={handleReset}
-              className="w-full bg-transparent border border-[#22c55e] text-[#22c55e] font-bold py-3 px-4 hover:bg-[#22c55e] hover:text-black uppercase tracking-widest transition-colors"
-            >
-              TRY AGAIN
-            </button>
-          </div>
-        )}
-
-        {state === 'result' && result && (
-          <div className="space-y-6 mt-6">
-            <div className="space-y-4">
-              <div>
-                <div className="text-xs text-gray-500">BENEFICIARY NAME</div>
-                <div className="text-2xl text-[#22c55e] font-bold">{result.name || result.beneficiaryName || 'N/A'}</div>
-              </div>
-              <div>
-                <div className="text-xs text-gray-500">FATHER'S NAME</div>
-                <div className="text-md text-white">{result.fatherName || 'N/A'}</div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <div className="text-xs text-gray-500">STATE</div>
-                  <div className="text-md text-white">{result.state || 'N/A'}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-gray-500">DISTRICT</div>
-                  <div className="text-md text-white">{result.district || 'N/A'}</div>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4 border-t border-gray-800 pt-4">
-                <div>
-                  <div className="text-xs text-gray-500">INSTALLMENTS</div>
-                  <div className="text-xl font-bold text-white">{result.installmentsCount || result.installmentsReceived || '0'}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-gray-500">LAST PAYMENT</div>
-                  <div className="text-xl font-bold text-[#22c55e]">
-                    {result.lastPaymentAmount && result.lastPaymentAmount.toString().startsWith('₹') 
-                      ? result.lastPaymentAmount 
-                      : `₹${result.lastPaymentAmount || '0'}`}
-                  </div>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <div className="text-xs text-gray-500">LAST PAYMENT DATE</div>
-                  <div className="text-md text-white">{result.lastPaymentDate || 'N/A'}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-gray-500">STATUS</div>
-                  <div className="inline-block px-2 py-1 mt-1 text-xs font-bold bg-[#22c55e] text-black uppercase">
-                    {result.statusBadge || 'ACTIVE'}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-gray-800 space-y-4">
-              <button
-                onClick={handleReset}
-                className="w-full bg-transparent border border-gray-600 text-gray-400 font-bold py-3 px-4 hover:border-[#22c55e] hover:text-[#22c55e] uppercase tracking-widest transition-colors"
-              >
-                CHECK ANOTHER
-              </button>
-              <a
-                href="https://pmkisan.gov.in/RegistrationFormNew.aspx"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block text-center text-[#22c55e] hover:underline text-sm"
-              >
-                Apply for PM Kisan →
-              </a>
-            </div>
-          </div>
-        )}
+        </motion.div>
       </div>
-    </div>
+    </>
   );
 }
