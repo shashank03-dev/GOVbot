@@ -47,12 +47,30 @@ graph TD
 | Step | Action | Description |
 | :--- | :--- | :--- |
 | 1 | **Initiation** | User sends "Hi" or a service request to the WhatsApp bot. |
-| 2 | **Eligibility Check** | Bot screens the user against scheme criteria (income, age, category). |
-| 3 | **User Info** | Bot collects basic details like **Name** and **Date of Birth**. |
-| 4 | **Identity** | User uploads a photo of their **Aadhaar Card** — auto-extracted via OCR. |
-| 5 | **DigiLocker** | Optional DigiLocker OAuth to fetch and validate official documents. |
-| 6 | **Processing** | LangGraph orchestrates the flow; Playwright auto-fills the portal form. |
-| 7 | **Completion** | A **Confirmation Number** is sent back to the user on WhatsApp + SMS fallback. |
+| 2 | **Profile Management** | Bot can manage user profile with "profile" or "my profile" commands. |
+| 3 | **Universal Form Fill** | User says "fill form" or "autofill" to start universal form auto-fill. |
+| 4 | **Form URL Input** | User provides any government form URL for analysis. |
+| 5 | **Field Mapping** | AI analyzes form structure and maps fields to user profile data. |
+| 6 | **Auto-Fill Execution** | Playwright automatically fills the form with user's data. |
+| 7 | **Completion** | Screenshot confirmation sent back to user on WhatsApp. |
+
+### 🔄 Form Auto-Fill Workflow
+
+```mermaid
+graph TD
+    A[User provides URL] --> B[AI Field Analysis]
+    B --> C[Profile Data Mapping]
+    C --> D[Playwright Auto-Fill]
+    D --> E[Screenshot Confirmation]
+    E --> F[Session Logged]
+```
+
+### 📱 WhatsApp Commands
+
+- **"profile"** / **"my profile"** - View and manage your profile
+- **"fill form"** / **"autofill"** - Start universal form auto-fill
+- **"update profile"** - Update your profile information
+- Any service name (e.g., "PM-KISAN") - Traditional scheme application
 
 ## 🛠 Tech Stack
 
@@ -74,20 +92,23 @@ graph TD
 ## 🚀 Features
 
 1.  **WhatsApp-First:** No new app to download; just message and apply.
-2.  **Intelligent Chatbot:** Powered by Google Gemini 2.0 Flash for natural conversations.
-3.  **Eligibility Screener:** Auto-checks scheme eligibility before collecting any data.
-4.  **Smart OCR:** Automatically extracts data from Aadhaar card photos using Gemini Vision.
-5.  **DigiLocker Integration:** OAuth-based document fetch and real-time validity checks.
-6.  **Multi-Portal Support:** Covers PM-KISAN, PM Scholarship (PMSS), Central Scholarship (CSSS), and Minority schemes.
-7.  **Auto Portals:** Playwright-driven agents fill out government forms in real-time.
-8.  **RAG-Powered:** Context-aware responses based on official government documentation.
-9.  **Secure Auth:** One-time passwords (OTP) delivered directly via WhatsApp.
-10. **SMS Fallback:** Twilio SMS ensures delivery even without internet access.
-11. **Renewal Automation:** Cron-based renewal reminders and re-application bot.
-12. **Credential Wallet:** On-chain credential anchoring via Solidity smart contract.
-13. **Live Tracking:** Real-time application status view with timeline breakdown.
-14. **Analytics Dashboard:** Admin insights on applications, schemes, and user activity.
-15. **User Dashboard:** View and manage all your applications at a glance.
+2.  **Universal Form Auto-Fill:** Fill ANY government form automatically with just a URL.
+3.  **Smart Profile Management:** Complete profile with OCR quick-fill and DigiLocker sync.
+4.  **Intelligent Chatbot:** Powered by Google Gemini 2.0 Flash for natural conversations.
+5.  **Eligibility Screener:** Auto-checks scheme eligibility before collecting any data.
+6.  **Smart OCR:** Automatically extracts data from Aadhaar card photos using Gemini Vision.
+7.  **DigiLocker Integration:** OAuth-based document fetch and real-time validity checks.
+8.  **Multi-Portal Support:** Covers PM-KISAN, PM Scholarship (PMSS), Central Scholarship (CSSS), and Minority schemes.
+9.  **Auto Portals:** Playwright-driven agents fill out government forms in real-time.
+10. **Form Field Mapping:** AI-powered field detection and mapping for any form structure.
+11. **RAG-Powered:** Context-aware responses based on official government documentation.
+12. **Secure Auth:** One-time passwords (OTP) delivered directly via WhatsApp.
+13. **SMS Fallback:** Twilio SMS ensures delivery even without internet access.
+14. **Renewal Automation:** Cron-based renewal reminders and re-application bot.
+15. **Credential Wallet:** On-chain credential anchoring via Solidity smart contract.
+16. **Live Tracking:** Real-time application status view with timeline breakdown.
+17. **Analytics Dashboard:** Admin insights on applications, schemes, and user activity.
+18. **User Dashboard:** View and manage all your applications at a glance.
 
 ## 🛠 Setup Instructions
 
@@ -170,6 +191,8 @@ GovBot/
 │   ├── digilocker_router.py      # DigiLocker OAuth + Fetch
 │   ├── digilocker_agent.py       # DigiLocker Document Agent
 │   ├── doc_validator_router.py   # Document Validity Checker
+│   ├── profile_router.py         # Profile Management Routes
+│   ├── form_scanner_router.py    # Universal Form Scanner & Auto-Fill
 │   ├── credentials_router.py     # Credential Wallet Routes
 │   ├── credentials_agent.py      # On-chain Credential Agent
 │   ├── renewal_router.py         # Renewal Management
@@ -187,9 +210,13 @@ GovBot/
 │   └── docs/                     # Documentation & Media
 ├── frontend/                     # Next.js Application
 │   ├── components/               # Shared UI Components
+│   │   ├── ProfilePrefillBanner.tsx # Profile auto-fill indicator
+│   │   └── [other components]
 │   ├── pages/
 │   │   ├── index.tsx             # Landing / Login Page
 │   │   ├── dashboard.tsx         # User Dashboard
+│   │   ├── profile.tsx           # Profile Management
+│   │   ├── form-fill.tsx         # Universal Form Auto-Fill
 │   │   ├── admin.tsx             # Admin Analytics View
 │   │   ├── eligibility.tsx       # Eligibility Screener
 │   │   ├── services.tsx          # Services Directory
@@ -214,6 +241,8 @@ GovBot/
 ├── contracts/
 │   └── GovBotCredentials.sol     # Solidity Credential Contract
 ├── schema.sql                    # Supabase DB Schema
+│   ├── citizen_profiles          # User profile data
+│   └── form_fill_sessions        # Auto-fill session logs
 ├── requirements.txt              # Python Deps
 ├── Dockerfile                    # Container Build
 └── README.md                     # Project Documentation
