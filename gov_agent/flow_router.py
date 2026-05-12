@@ -1,5 +1,7 @@
 import re
 import uuid
+import logging
+from typing import Any
 import google.generativeai as genai
 from gov_agent.models import WhatsAppIncoming
 from gov_agent.db import supabase
@@ -7,6 +9,8 @@ from gov_agent import rag_engine
 from gov_agent import graph
 from gov_agent.config import BASE_URL
 from gov_agent.config import GEMINI_API_KEY
+
+logger = logging.getLogger(__name__)
 
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
@@ -36,13 +40,34 @@ async def translate_reply(text: str, lang: str) -> str:
     except Exception:
         return text
 
+async def _load_profile(phone: str) -> dict:
+    """Load citizen profile for a phone number, returns empty dict if not found."""
+    try:
+        resp = supabase.table("citizen_profiles").select("*").eq("phone", phone).limit(1).execute()
+        return resp.data[0] if resp.data else {}
+    except Exception:
+        return {}
+
+
+async def _save_profile_field(phone: str, field: str, value) -> None:
+    """Upsert a single field into citizen_profiles."""
+    try:
+        supabase.table("citizen_profiles").upsert(
+            {"phone": phone, field: value},
+            on_conflict="phone",
+        ).execute()
+    except Exception as e:
+        logger.warning(f"profile save error ({field}): {e}")
+
+
 MENU = (
     "🙏 Namaste! GovBot - Govt Services\n\n"
     "1️⃣ Apply for Scholarship\n"
     "2️⃣ Check Application Status\n"
     "3️⃣ Check My Eligibility\n"
-    "4️⃣ PM Kisan Status\n\n"
-    "Reply with 1, 2, 3 or 4"
+    "4️⃣ PM Kisan Status\n"
+    "5️⃣ Auto-Fill Any Form\n\n"
+    "Reply with 1-5 or type 'profile' to manage your profile"
 )
 
 PORTAL_MENU = (
@@ -61,7 +86,40 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
     state = session.get("state", "greeting")
 
     _EXIT_KEYWORDS = {"exit", "close", "restart", "cancel", "reset", "start over", "/start"}
-    if body.strip().lower() in _EXIT_KEYWORDS:
+    body_lower = body.strip().lower()
+
+    # ── Global keyword: update profile ──────────────────────────────────────
+    if body_lower in {"update profile", "profile", "my profile", "/profile"}:
+        profile = await _load_profile(msg.phone)
+        from gov_agent.profile_router import _compute_completeness
+        pct, missing = _compute_completeness(profile)
+        missing_list = ", ".join(missing[:5]) if missing else "none"
+        return (
+            f"👤 *Your Profile* ({pct}% complete)\n\n"
+            f"Name: {profile.get('full_name', '—')}\n"
+            f"DOB: {profile.get('dob', '—')}\n"
+            f"Income: ₹{profile.get('income', '—')}\n"
+            f"Caste: {profile.get('caste', '—')}\n"
+            f"Bank: {'✅ added' if profile.get('bank_account') else '❌ missing'}\n\n"
+            f"Missing: {missing_list}\n\n"
+            f"🌐 Complete your profile: govbot.vercel.app/profile\n"
+            f"Reply *UPDATE NAME*, *UPDATE INCOME*, etc. to change a field.",
+            "profile_view",
+            data,
+        )
+
+    # ── Global keyword: fill form ────────────────────────────────────────────
+    if body_lower in {"fill form", "autofill", "auto fill", "/fill"}:
+        return (
+            "🤖 *Smart Form Fill*\n\n"
+            "Paste the URL of any government form and I'll fill it from your profile.\n\n"
+            "Example: https://scholarships.gov.in/fresh/newstdRegfrmInstruction\n\n"
+            "🌐 Or use the web tool: govbot.vercel.app/form-fill",
+            "form_fill_url",
+            data,
+        )
+
+    if body_lower in _EXIT_KEYWORDS:
         farewell = (
             "👋 Thank you for using GovBot!\n\n"
             "Your session has been closed.\n\n"
@@ -82,7 +140,30 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
         elif body == "4":
             return ("Enter your 12-digit Aadhaar or 11-digit PM Kisan Registration Number:",
                     "pm_kisan_aadhaar", data)
+        elif body == "5":
+            return (
+                "🤖 *Smart Form Fill*\n\n"
+                "Paste the URL of any government form and I'll fill it from your profile.\n\n"
+                "🌐 Or use the web tool: govbot.vercel.app/form-fill",
+                "form_fill_url",
+                data,
+            )
         else:
+            profile = await _load_profile(msg.phone)
+            if profile.get("full_name"):
+                from gov_agent.profile_router import _compute_completeness
+                pct, _ = _compute_completeness(profile)
+                greeting_menu = (
+                    f"🙏 Welcome back, {profile['full_name'].split()[0]}! GovBot\n"
+                    f"📊 Profile: {pct}% complete\n\n"
+                    "1️⃣ Apply for Scholarship\n"
+                    "2️⃣ Check Application Status\n"
+                    "3️⃣ Check My Eligibility\n"
+                    "4️⃣ PM Kisan Status\n"
+                    "5️⃣ Auto-Fill Any Form\n\n"
+                    "Reply with 1-5 or type 'profile' to manage your profile"
+                )
+                return (greeting_menu, "greeting", data)
             return (MENU, "greeting", data)
 
     elif state == "portal_select":
@@ -209,8 +290,140 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
                 data
             )
 
+    elif state == "profile_view":
+        body_up = body.strip().upper()
+        if body_up.startswith("UPDATE "):
+            field_keyword = body_up[7:].strip()
+            field_map = {
+                "NAME": ("full_name", "What is your full name?", "profile_update_name"),
+                "DOB": ("dob", "Date of birth? (DD/MM/YYYY)", "profile_update_dob"),
+                "INCOME": ("income", "Annual family income in ₹?", "profile_update_income"),
+                "CASTE": ("caste", "Caste category? (general/obc/sc/st/ews)", "profile_update_caste"),
+                "BANK": ("bank_account", "Enter your bank account number:", "profile_update_bank"),
+                "IFSC": ("bank_ifsc", "Enter your 11-character IFSC code:", "profile_update_ifsc"),
+                "EMAIL": ("email", "Enter your email address:", "profile_update_email"),
+                "ADDRESS": ("address", "Enter your full address:", "profile_update_address"),
+            }
+            if field_keyword in field_map:
+                _, question, next_state = field_map[field_keyword]
+                data["_update_field"] = field_map[field_keyword][0]
+                return (question, next_state, data)
+        return (MENU, "greeting", data)
+
+    elif state in (
+        "profile_update_name", "profile_update_dob", "profile_update_income",
+        "profile_update_caste", "profile_update_bank", "profile_update_ifsc",
+        "profile_update_email", "profile_update_address",
+    ):
+        field = data.get("_update_field", "full_name")
+        value: Any = body.strip()
+        if field == "income":
+            if not value.isdigit():
+                return ("❌ Enter numbers only", state, data)
+            value = int(value)
+        elif field == "dob":
+            if not re.match(r"^\d{2}/\d{2}/\d{4}$", value):
+                return ("❌ Use DD/MM/YYYY format", state, data)
+        await _save_profile_field(msg.phone, field, value)
+        data.pop("_update_field", None)
+        return (
+            f"✅ {field.replace('_', ' ').title()} updated!\n\n"
+            "Reply 'profile' to view your profile or 'Hi' for main menu.",
+            "profile_view",
+            data,
+        )
+
+    elif state == "form_fill_url":
+        url = body.strip()
+        if not url.startswith("http"):
+            return ("❌ Please send a valid URL starting with http:// or https://", "form_fill_url", data)
+        profile = await _load_profile(msg.phone)
+        if not profile.get("full_name"):
+            return (
+                "⚠️ Your profile is empty. Complete it first:\n"
+                "govbot.vercel.app/profile\n\n"
+                "Or reply 'update profile' to add your details via chat.",
+                "greeting",
+                data,
+            )
+        return (
+            f"🔍 Analyzing form fields at:\n{url}\n\n"
+            f"⏳ Opening form with Playwright + Gemini mapper...\n\n"
+            f"🌐 For live status: govbot.vercel.app/form-fill\n\n"
+            f"This may take 30-60 seconds. I'll message you when done.",
+            "form_fill_processing",
+            {**data, "_fill_url": url},
+        )
+
+    elif state == "form_fill_processing":
+        url = data.get("_fill_url", "")
+        if not url:
+            return (MENU, "greeting", data)
+        try:
+            from gov_agent.form_scanner_router import analyze_form, fill_form, FormAnalyzeRequest, FormFillRequest
+            analyze_result = await analyze_form(FormAnalyzeRequest(url=url, phone=msg.phone))
+            field_map = analyze_result.get("field_map", {})
+            missing = analyze_result.get("missing_fields", [])
+            filled_count = analyze_result.get("filled_count", 0)
+            missing_str = ", ".join(missing[:3]) if missing else "none"
+            reply = (
+                f"✅ Form analyzed! Found {len(field_map)} fields.\n"
+                f"Auto-filled from profile: {filled_count}\n"
+                f"Missing: {missing_str}\n\n"
+            )
+            if missing:
+                data["_fill_url"] = url
+                data["_fill_map"] = field_map
+                data["_fill_missing"] = missing
+                reply += f"Please provide: *{missing[0].replace('_', ' ')}*"
+                return (reply, "form_fill_collect_gap", data)
+            fill_result = await fill_form(FormFillRequest(url=url, phone=msg.phone, field_map=field_map, confirm=True))
+            return (
+                reply +
+                f"🎉 Form filled! {fill_result.get('filled_count', filled_count)} fields completed.\n\n"
+                f"📸 Screenshot: govbot.vercel.app/form-fill\n"
+                f"Type 'restart' for main menu.",
+                "completed",
+                data,
+            )
+        except Exception as e:
+            logger.error(f"form_fill_processing error: {e}")
+            return (
+                f"❌ Could not process form: {str(e)[:100]}\n"
+                "Try: govbot.vercel.app/form-fill for the web tool.",
+                "greeting",
+                data,
+            )
+
+    elif state == "form_fill_collect_gap":
+        missing_fields: list = data.get("_fill_missing", [])
+        if not missing_fields:
+            return (MENU, "greeting", data)
+        current_field = missing_fields[0]
+        data["_fill_map"] = {**data.get("_fill_map", {}), current_field: body.strip()}
+        await _save_profile_field(msg.phone, current_field, body.strip())
+        remaining = missing_fields[1:]
+        data["_fill_missing"] = remaining
+        if remaining:
+            return (f"Please provide: *{remaining[0].replace('_', ' ')}*", "form_fill_collect_gap", data)
+        url = data.get("_fill_url", "")
+        field_map = data.get("_fill_map", {})
+        try:
+            from gov_agent.form_scanner_router import fill_form, FormFillRequest
+            fill_result = await fill_form(FormFillRequest(url=url, phone=msg.phone, field_map=field_map, confirm=True))
+            return (
+                f"🎉 Form filled! {fill_result.get('filled_count', len(field_map))} fields completed.\n\n"
+                "📸 Screenshot: govbot.vercel.app/form-fill\n"
+                "Type 'restart' for main menu.",
+                "completed",
+                data,
+            )
+        except Exception as e:
+            return (f"❌ Fill error: {str(e)[:100]}", "greeting", data)
+
     elif state == "collect_name":
         data["name"] = body.strip()
+        await _save_profile_field(msg.phone, "full_name", data["name"])
         session_id = str(uuid.uuid4())
         data["session_id"] = session_id
         try:
@@ -231,6 +444,7 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
         if not re.match(r"^\d{2}/\d{2}/\d{4}$", body.strip()):
             return ("❌ Invalid format. Use DD/MM/YYYY", "collect_dob", data)
         data["dob"] = body.strip()
+        await _save_profile_field(msg.phone, "dob", data["dob"])
         await _advance(data.get("session_id"), 2, {"name": data.get("name"), "dob": data["dob"]})
         return ("Annual family income in ₹?", "collect_income", data)
 
@@ -238,6 +452,7 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
         if not body.strip().isdigit():
             return ("❌ Enter numbers only", "collect_income", data)
         data["income"] = int(body.strip())
+        await _save_profile_field(msg.phone, "income", data["income"])
         await _advance(data.get("session_id"), 3, {"name": data.get("name"), "dob": data.get("dob"), "income": data["income"]})
         return (
             "Please send a clear photo of your Aadhaar card 📎",
@@ -588,6 +803,7 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
     elif state == "pmss_collect_name":
         data["name"] = body.strip()
         data["portal"] = "pmss"
+        await _save_profile_field(msg.phone, "full_name", data["name"])
         return ("Date of birth? (DD/MM/YYYY)", "pmss_collect_dob", data)
 
     elif state == "pmss_collect_dob":
@@ -631,6 +847,7 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
     elif state == "csss_collect_name":
         data["name"] = body.strip()
         data["portal"] = "csss"
+        await _save_profile_field(msg.phone, "full_name", data["name"])
         return ("Date of birth? (DD/MM/YYYY)", "csss_collect_dob", data)
 
     elif state == "csss_collect_dob":
@@ -677,6 +894,7 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
     elif state == "minority_collect_name":
         data["name"] = body.strip()
         data["portal"] = "minority"
+        await _save_profile_field(msg.phone, "full_name", data["name"])
         return ("Date of birth? (DD/MM/YYYY)", "minority_collect_dob", data)
 
     elif state == "minority_collect_dob":

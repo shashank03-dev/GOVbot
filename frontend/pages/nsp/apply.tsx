@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 
 // ─── Demo data that GovBot "types" ───────────────────────────────────────────
-const DEMO_DATA = {
+export const DEMO_DATA = {
   name: 'Ravi Kumar',
   dob: '15/08/2003',
   gender: 'Male',
@@ -196,6 +196,21 @@ export default function NSPApply() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [currentTypeTarget, setCurrentTypeTarget] = useState('');
   const [typeSpeed] = useState(55);
+  const [digilockerProfile, setDigilockerProfile] = useState<typeof DEMO_DATA | null>(null);
+  const activeDataRef = useRef<typeof DEMO_DATA>(DEMO_DATA);
+
+  // ── Load DigiLocker profile from localStorage on mount ──
+  useEffect(() => {
+    const stored = localStorage.getItem('digilocker_profile');
+    if (stored) {
+      try {
+        const profile = JSON.parse(stored);
+        const merged = { ...DEMO_DATA, ...profile };
+        setDigilockerProfile(merged);
+        activeDataRef.current = merged;
+      } catch (_) {}
+    }
+  }, []);
 
   const stepIndexRef = useRef(0);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -218,7 +233,7 @@ export default function NSPApply() {
     if (!step) return;
 
     // Commit the value and mark step done
-    setFilledData((prev) => ({ ...prev, [step.field]: DEMO_DATA[step.field] }));
+    setFilledData((prev) => ({ ...prev, [step.field]: activeDataRef.current[step.field] }));
     setStepLog((prev) => prev.map((s, i) => i === stepIdx ? { ...s, done: true } : s));
 
     // Move to next step
@@ -232,7 +247,7 @@ export default function NSPApply() {
         const nextStep = DEMO_STEPS[nextIdx];
         setActiveTab(nextStep.tab);
         setActiveField(nextStep.field);
-        setCurrentTypeTarget(DEMO_DATA[nextStep.field]);
+        setCurrentTypeTarget(activeDataRef.current[nextStep.field]);
       }, 400);
     } else {
       // Move to upload phase
@@ -277,7 +292,7 @@ export default function NSPApply() {
       const firstStep = DEMO_STEPS[0];
       setActiveTab(firstStep.tab);
       setActiveField(firstStep.field);
-      setCurrentTypeTarget(DEMO_DATA[firstStep.field]);
+      setCurrentTypeTarget(activeDataRef.current[firstStep.field]);
     }, 600);
   }, [clearTimeouts]);
 
@@ -465,6 +480,31 @@ export default function NSPApply() {
               <h2 className="font-bold text-[15px]">Fresh Scholarship Application Form AY 2025-26</h2>
               <p className="text-[11px] text-pink-100 mt-0.5">All fields marked with <span className="text-yellow-300 font-bold">*</span> are mandatory</p>
             </div>
+
+            {/* DigiLocker Auto-fill Banner */}
+            {!isSpectator && digilockerProfile && demoState === 'idle' && (
+              <div className="px-5 pt-4 pb-3 border-b border-[#E0E0E0] bg-[#E8F5E9]">
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🔗</span>
+                    <div>
+                      <div className="text-[13px] text-[#1B5E20] font-bold">
+                        DigiLocker Connected — {digilockerProfile.name}
+                      </div>
+                      <div className="text-[11px] text-green-700 mt-0.5">
+                        Documents ready: Aadhaar, Income Cert, Caste Cert, Marksheet
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={startDemo}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#2E7D32] text-white text-[12px] font-bold rounded transition-colors hover:bg-[#1B5E20]"
+                  >
+                    ⚡ Auto-fill from DigiLocker
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* OCR Auto-fill button */}
             {!isSpectator && (

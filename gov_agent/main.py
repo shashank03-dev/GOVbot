@@ -125,6 +125,20 @@ app.include_router(
     tags=["Analytics"]
 )
 
+from gov_agent import profile_router
+app.include_router(
+    profile_router.router,
+    prefix="/profile",
+    tags=["Profile"]
+)
+
+from gov_agent import form_scanner_router
+app.include_router(
+    form_scanner_router.router,
+    prefix="/form-scanner",
+    tags=["Form Scanner"]
+)
+
 
 @asynccontextmanager
 async def lifespan(app):

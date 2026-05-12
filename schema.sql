@@ -1,6 +1,12 @@
 -- GOVbot Supabase Schema
 -- Run this in the Supabase SQL Editor to recreate all tables from scratch.
 -- Generated 2026-05-11 from code inspection.
+--
+-- OTP fix note:
+-- If /auth/send-otp logs PGRST205 or says otp_rate_limits / otp_codes is
+-- missing, run the otp_codes and otp_rate_limits CREATE TABLE blocks below in
+-- the Supabase SQL Editor, then restart the backend so PostgREST refreshes its
+-- schema cache.
 
 -- ------------------------------------------------------------
 -- 1. sessions — per-phone FSM state
@@ -237,3 +243,49 @@ create table if not exists verifiable_credentials (
 create index if not exists verifiable_credentials_phone_idx on verifiable_credentials(phone);
 create index if not exists verifiable_credentials_confirmation_idx on verifiable_credentials(confirmation_number);
 create index if not exists verifiable_credentials_tx_hash_idx on verifiable_credentials(blockchain_tx_hash);
+
+-- ------------------------------------------------------------
+-- 16. citizen_profiles — persistent citizen profile (source of truth for auto-fill)
+-- ------------------------------------------------------------
+create table if not exists citizen_profiles (
+    phone             text        primary key,
+    full_name         text,
+    dob               date,
+    gender            text,
+    aadhaar_last4     text,
+    address           text,
+    state             text,
+    district          text,
+    pincode           text,
+    income            integer,
+    caste             text,        -- general / obc / sc / st / ews
+    religion          text,
+    course_level      text,
+    institution       text,
+    marks_pct         numeric(5,2),
+    bank_account      text,
+    bank_ifsc         text,
+    bank_name         text,
+    father_name       text,
+    mother_name       text,
+    email             text,
+    digilocker_connected boolean  default false,
+    profile_complete  boolean     default false,
+    updated_at        timestamptz not null default now()
+);
+
+-- ------------------------------------------------------------
+-- 17. form_fill_sessions — auto-fill history for any portal URL
+-- ------------------------------------------------------------
+create table if not exists form_fill_sessions (
+    id              uuid        primary key default gen_random_uuid(),
+    phone           text        not null,
+    url             text        not null,
+    field_map       jsonb       not null default '{}',
+    filled_count    integer     not null default 0,
+    missing_fields  text[]      not null default '{}',
+    screenshot_path text,
+    status          text        not null default 'pending', -- pending, filled, failed
+    created_at      timestamptz not null default now()
+);
+create index if not exists form_fill_sessions_phone_idx on form_fill_sessions(phone);

@@ -78,6 +78,8 @@ def _check_rate_limit(phone: str) -> None:
         supabase.table("otp_rate_limits").update({
             "request_count": count + 1,
         }).eq("phone", phone).execute()
+    except HTTPException:
+        raise
     except Exception as e:
         # If otp_rate_limits table doesn't exist or other error, log and continue without rate limiting
         logger.warning("Rate limiting disabled due to missing table or error: %s", e)
@@ -87,6 +89,14 @@ def _check_rate_limit(phone: str) -> None:
 def _hash_otp(code: str) -> str:
     """Return SHA-256 hex digest of the OTP code."""
     return hashlib.sha256(code.encode()).hexdigest()
+
+
+def _normalize_phone(phone: str) -> str:
+    phone = phone.strip().removeprefix("+")
+    # Prepend India country code for bare 10-digit numbers
+    if len(phone) == 10 and phone.isdigit():
+        phone = "91" + phone
+    return phone
 
 
 # ── Request schemas ──────────────────────────────────────────────────────────
@@ -108,25 +118,32 @@ async def send_otp(body: SendOTPRequest):
     if not body.phone:
         raise HTTPException(status_code=400, detail="phone is required")
 
-    _check_rate_limit(body.phone)
+    phone = _normalize_phone(body.phone)
+    _check_rate_limit(phone)
 
     code = str(random.randint(100_000, 999_999))
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(minutes=10)
 
-    # Store hashed OTP — plaintext never persisted
-    supabase.table("otp_codes").insert({
-        "phone": body.phone,
-        "code": _hash_otp(code),
-        "expires_at": expires_at.isoformat(),
-        "used": False,
-    }).execute()
+    try:
+        supabase.table("otp_codes").insert({
+            "phone": phone,
+            "code": _hash_otp(code),
+            "expires_at": expires_at.isoformat(),
+            "used": False,
+        }).execute()
+    except Exception as e:
+        logger.error("Failed to store OTP for %s: %s", phone, e)
+        raise HTTPException(status_code=500, detail="Failed to store OTP") from e
 
     # Deliver OTP over WhatsApp
     message = f"Your GovBot OTP is: {code}\nValid for 10 minutes."
-    await whatsapp_sender.send_message(body.phone, message)
+    delivered = await whatsapp_sender.send_message(phone, message)
+    if not delivered:
+        logger.error("Failed to deliver OTP to %s", phone)
+        raise HTTPException(status_code=502, detail="Failed to send OTP via WhatsApp or SMS")
 
-    logger.info("OTP sent to %s", body.phone)
+    logger.info("OTP sent to %s", phone)
     return {"message": "OTP sent"}
 
 
@@ -138,13 +155,14 @@ async def verify_otp(body: VerifyOTPRequest):
     if not body.phone or not body.code:
         raise HTTPException(status_code=400, detail="phone and code are required")
 
+    phone = _normalize_phone(body.phone)
     now_iso = datetime.now(timezone.utc).isoformat()
 
     # Fetch a valid, unused, non-expired OTP row (compare hashed code)
     result = (
         supabase.table("otp_codes")
         .select("id")
-        .eq("phone", body.phone)
+        .eq("phone", phone)
         .eq("code", _hash_otp(body.code))
         .eq("used", False)
         .gt("expires_at", now_iso)
@@ -161,8 +179,8 @@ async def verify_otp(body: VerifyOTPRequest):
 
     # Issue a 7-day JWT
     exp = datetime.now(timezone.utc) + timedelta(days=7)
-    payload = {"phone": body.phone, "exp": exp}
+    payload = {"phone": phone, "exp": exp}
     token = jwt.encode(payload, str(SECRET_KEY), algorithm="HS256")
 
-    logger.info("JWT issued for %s", body.phone)
-    return {"valid": True, "token": token, "phone": body.phone}
+    logger.info("JWT issued for %s", phone)
+    return {"valid": True, "token": token, "phone": phone}

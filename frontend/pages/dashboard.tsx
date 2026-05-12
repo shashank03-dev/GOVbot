@@ -6,7 +6,9 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import AnimatedCounter from '@/components/AnimatedCounter';
 import StatusBadge from '@/components/StatusBadge';
-import { FileText, Clock, CheckCircle, XCircle, ExternalLink, ArrowRight } from 'lucide-react';
+import { FileText, Clock, CheckCircle, XCircle, ExternalLink, ArrowRight, User, Zap, ChevronRight } from 'lucide-react';
+
+const API_BASE = process.env.NEXT_PUBLIC_RAILWAY_URL || 'http://localhost:8000';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key';
@@ -23,6 +25,8 @@ type Application = {
 export default function Dashboard() {
   const [apps, setApps] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
+  const [profilePct, setProfilePct] = useState<number | null>(null);
+  const [profileName, setProfileName] = useState<string>('');
   const router = useRouter();
 
   useEffect(() => {
@@ -53,6 +57,18 @@ export default function Dashboard() {
       } finally {
         setLoading(false);
       }
+
+      try {
+        const token = localStorage.getItem('govbot_token');
+        const res = await fetch(`${API_BASE}/profile/${encodeURIComponent(phone)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const d = await res.json();
+          setProfilePct(d.completeness_pct ?? 0);
+          setProfileName(d.profile?.full_name || '');
+        }
+      } catch { /* profile optional */ }
     })();
   }, [router]);
 
@@ -99,6 +115,56 @@ export default function Dashboard() {
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
+
+        {/* Profile completeness widget */}
+        {profilePct !== null && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className={`mb-6 rounded-2xl border p-4 flex items-center gap-4 ${
+              profilePct >= 80 ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100'
+            }`}
+          >
+            <div className={`p-2.5 rounded-xl ${profilePct >= 80 ? 'bg-emerald-100' : 'bg-amber-100'}`}>
+              <User className={`w-5 h-5 ${profilePct >= 80 ? 'text-emerald-600' : 'text-amber-600'}`} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <p className={`text-sm font-semibold ${profilePct >= 80 ? 'text-emerald-800' : 'text-amber-800'}`}>
+                  {profileName ? `${profileName.split(' ')[0]}'s Profile` : 'Citizen Profile'} — {profilePct}% complete
+                </p>
+                <Link
+                  href="/profile"
+                  className={`flex-shrink-0 flex items-center gap-1 text-xs font-semibold ${
+                    profilePct >= 80 ? 'text-emerald-600 hover:text-emerald-800' : 'text-amber-600 hover:text-amber-800'
+                  } transition-colors`}
+                >
+                  {profilePct >= 80 ? 'View Profile' : 'Complete Profile'} <ChevronRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+              <div className="mt-2 h-2 bg-white/60 rounded-full overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${profilePct}%` }}
+                  transition={{ duration: 0.8, ease: 'easeOut', delay: 0.3 }}
+                  className={`h-full rounded-full ${profilePct >= 80 ? 'bg-emerald-400' : 'bg-amber-400'}`}
+                />
+              </div>
+              {profilePct < 80 && (
+                <p className="text-xs text-amber-600 mt-1">
+                  Complete your profile to enable 1-tap auto-fill on any government form
+                </p>
+              )}
+            </div>
+            <Link
+              href="/form-fill"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors flex-shrink-0"
+            >
+              <Zap className="w-3.5 h-3.5 text-orange-400" /> Auto-Fill Form
+            </Link>
+          </motion.div>
+        )}
 
         {/* Stats grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">

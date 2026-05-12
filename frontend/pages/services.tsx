@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { GraduationCap, Search, CheckCircle, Sprout, ScanLine, Landmark, FileCheck, Bell, Wallet, Link2, BarChart3, Shield, ArrowRight } from 'lucide-react';
+import { GraduationCap, Search, CheckCircle, Sprout, ScanLine, Landmark, FileCheck, Bell, Wallet, Link2, BarChart3, Shield, ArrowRight, Zap, User } from 'lucide-react';
 
 const SERVICE_CARDS = [
   { icon: GraduationCap, title: 'Apply for Scholarship', description: 'Apply to NSP, PMSS, CSSS, or Minority scholarship portals', href: '/eligibility', color: '#ff9933', bg: '#fff7ed' },
@@ -16,7 +16,7 @@ const TOOL_CARDS = [
   { icon: FileCheck, title: 'Document Validator', description: 'Check expiry & validity of certificates', href: '/documents', color: '#f59e0b', bg: '#fffbeb' },
   { icon: Bell, title: 'Renewal Reminders', description: 'View & register scholarship renewal reminders', href: '/renewals', color: '#ef4444', bg: '#fef2f2' },
   { icon: Wallet, title: 'Credential Wallet', description: 'View your blockchain-verified scholarship credentials', href: '/wallet', color: '#8b5cf6', bg: '#f5f3ff' },
-  { icon: Link2, title: 'DigiLocker', description: 'Connect DigiLocker to auto-fetch your documents', href: '/digilocker/callback', color: '#0ea5e9', bg: '#f0f9ff' },
+  { icon: Link2, title: 'DigiLocker', description: 'Connect DigiLocker to auto-fetch your documents', href: '/digilocker', color: '#0ea5e9', bg: '#f0f9ff' },
 ];
 
 const PORTAL_CARDS = [
@@ -42,6 +42,43 @@ export default function ServicesHub() {
           </h1>
           <p className="text-sm text-slate-500 mt-1">Everything you need to navigate government scholarship schemes</p>
         </div>
+
+        {/* Form Auto-Fill Hero */}
+        <section>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center gap-4"
+          >
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
+                  <Zap className="w-4 h-4 text-white" />
+                </div>
+                <span className="text-xs font-semibold text-orange-100 uppercase tracking-wider">New</span>
+              </div>
+              <h2 className="text-xl font-bold text-white mb-1">Auto-Fill Any Government Form</h2>
+              <p className="text-sm text-orange-100">
+                Build your citizen profile once — GovBot fills any government portal form instantly. Works with NSP, PM Kisan, Udyam, and 100+ more portals.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 flex-shrink-0 w-full sm:w-auto">
+              <Link
+                href="/form-fill"
+                className="flex items-center justify-center gap-2 px-5 py-2.5 bg-white text-orange-600 text-sm font-bold rounded-xl hover:bg-orange-50 transition-colors"
+              >
+                <Zap className="w-4 h-4" /> Try Auto-Fill
+              </Link>
+              <Link
+                href="/profile"
+                className="flex items-center justify-center gap-2 px-5 py-2 bg-white/20 text-white text-sm font-semibold rounded-xl hover:bg-white/30 transition-colors"
+              >
+                <User className="w-4 h-4" /> Build My Profile
+              </Link>
+            </div>
+          </motion.div>
+        </section>
 
         {/* Main Services */}
         <section>

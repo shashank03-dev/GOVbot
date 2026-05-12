@@ -15,7 +15,7 @@ const NAV_LINKS = [
   { href: '/eligibility', label: 'Eligibility', icon: CheckCircle },
 ];
 
-const NO_LAYOUT_PAGES = ['/nsp', '/nsp/apply', '/pmss', '/csss', '/minority'];
+const NO_LAYOUT_PAGES = ['/nsp', '/nsp/apply', '/pmss', '/csss', '/minority', '/digilocker', '/digilocker/callback'];
 
 export default function Layout({ children }: LayoutProps) {
   const router = useRouter();
