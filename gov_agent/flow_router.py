@@ -79,7 +79,12 @@ MENU = (
     "3️⃣ Check My Eligibility\n"
     "4️⃣ PM Kisan Status\n"
     "5️⃣ Auto-Fill Any Form\n\n"
-    "Reply with 1-5 or type 'profile' to manage your profile"
+    "💡 *Other commands:*\n"
+    "• 'profile' — View/update profile\n"
+    "• 'set pin' — Set security passkey\n"
+    "• 'my pan' / 'my aadhaar' — View docs (passkey needed)\n"
+    "• 'web' — Open web dashboard\n\n"
+    "Reply with 1-5 or a command above"
 )
 
 PORTAL_MENU = (

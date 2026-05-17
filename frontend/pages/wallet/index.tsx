@@ -32,8 +32,7 @@ export default function CredentialWallet() {
     const phone = localStorage.getItem('govbot_phone');
     
     if (!phone) {
-      setError('Please login first');
-      setLoading(false);
+      window.location.href = '/login';
       return;
     }
 
