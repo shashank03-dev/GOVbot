@@ -9,12 +9,11 @@ WhatsApp-first agentic AI for Indian government service delivery. Seamlessly bri
 [![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
 [![Playwright](https://img.shields.io/badge/Playwright-2EAD33?style=for-the-badge&logo=playwright&logoColor=white)](https://playwright.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
-[![Railway](https://img.shields.io/badge/Railway-131415?style=for-the-badge&logo=railway&logoColor=white)](https://railway.app/)
 [![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com/)
 
 ---
 
-### 🌐 [Live Demo](https://govbot-fawn.vercel.app) | 📦 [Backend on Railway](https://railway.app)
+### 🌐 [Live Demo](https://govbot-fawn.vercel.app)
 
 ![GovBot Demo](gov_agent/docs/demo1.gif)
 
@@ -39,7 +38,6 @@ graph TD
     H --> I[Supabase DB]
     I --> J[WhatsApp Confirmation]
 ```
-*(ASCII representation of the flow)*
 `WhatsApp -> FastAPI -> LangGraph -> Gemini -> Playwright -> Gov Portals -> Supabase -> WhatsApp`
 
 ## 💬 Conversation Flow
@@ -47,7 +45,7 @@ graph TD
 | Step | Action | Description |
 | :--- | :--- | :--- |
 | 1 | **Initiation** | User sends "Hi" or a service request to the WhatsApp bot. |
-| 2 | **Profile Management** | Bot can manage user profile with "profile" or "my profile" commands. |
+| 2 | **Profile Management** | Bot manages user profile with "profile" or "my profile" commands. |
 | 3 | **Universal Form Fill** | User says "fill form" or "autofill" to start universal form auto-fill. |
 | 4 | **Form URL Input** | User provides any government form URL for analysis. |
 | 5 | **Field Mapping** | AI analyzes form structure and maps fields to user profile data. |
@@ -67,10 +65,16 @@ graph TD
 
 ### 📱 WhatsApp Commands
 
-- **"profile"** / **"my profile"** - View and manage your profile
-- **"fill form"** / **"autofill"** - Start universal form auto-fill
-- **"update profile"** - Update your profile information
-- Any service name (e.g., "PM-KISAN") - Traditional scheme application
+| Command | Description |
+| :--- | :--- |
+| `hi` / `hello` | Start a conversation |
+| `profile` / `my profile` | View and manage your profile |
+| `fill form` / `autofill` | Start universal form auto-fill |
+| `update profile` | Update your profile information |
+| `set pin` / `set passkey` | Set a 4-digit security PIN for sensitive data |
+| `my pan` / `my aadhaar` | View documents (passkey required) |
+| `web` | Get a link to log in to the web dashboard |
+| Any scheme name (e.g., "PM-KISAN") | Start a scheme application |
 
 ## 🛠 Tech Stack
 
@@ -81,34 +85,45 @@ graph TD
 | **LLM** | Google Gemini 2.0 Flash |
 | **RAG** | ChromaDB + Gemini Embeddings |
 | **Automation** | Playwright |
-| **Messaging** | Meta WhatsApp Cloud API + SMS Fallback |
+| **Messaging** | Meta WhatsApp Cloud API + Twilio SMS Fallback |
 | **Database** | Supabase (Postgres) |
-| **Authentication** | OTP via WhatsApp + JWT + DigiLocker OAuth |
+| **Authentication** | OTP via WhatsApp + JWT + QR Code Login + DigiLocker OAuth |
 | **OCR** | Aadhaar card extraction via Gemini Vision |
 | **Smart Contracts** | Solidity (credential anchoring) |
-| **Frontend** | Next.js 15 (TypeScript + Tailwind) |
-| **Deployment** | Railway (Backend), Vercel (Frontend) |
+| **Frontend** | Next.js 15 (TypeScript + Tailwind CSS) |
+| **Deployment** | Vercel (Frontend) + ngrok / Railway (Backend) |
 
 ## 🚀 Features
 
-1.  **WhatsApp-First:** No new app to download; just message and apply.
-2.  **Universal Form Auto-Fill:** Fill ANY government form automatically with just a URL.
-3.  **Smart Profile Management:** Complete profile with OCR quick-fill and DigiLocker sync.
-4.  **Intelligent Chatbot:** Powered by Google Gemini 2.0 Flash for natural conversations.
-5.  **Eligibility Screener:** Auto-checks scheme eligibility before collecting any data.
-6.  **Smart OCR:** Automatically extracts data from Aadhaar card photos using Gemini Vision.
-7.  **DigiLocker Integration:** OAuth-based document fetch and real-time validity checks.
-8.  **Multi-Portal Support:** Covers PM-KISAN, PM Scholarship (PMSS), Central Scholarship (CSSS), and Minority schemes.
-9.  **Auto Portals:** Playwright-driven agents fill out government forms in real-time.
-10. **Form Field Mapping:** AI-powered field detection and mapping for any form structure.
-11. **RAG-Powered:** Context-aware responses based on official government documentation.
-12. **Secure Auth:** One-time passwords (OTP) delivered directly via WhatsApp.
-13. **SMS Fallback:** Twilio SMS ensures delivery even without internet access.
-14. **Renewal Automation:** Cron-based renewal reminders and re-application bot.
-15. **Credential Wallet:** On-chain credential anchoring via Solidity smart contract.
-16. **Live Tracking:** Real-time application status view with timeline breakdown.
-17. **Analytics Dashboard:** Admin insights on applications, schemes, and user activity.
-18. **User Dashboard:** View and manage all your applications at a glance.
+### Core
+1.  **WhatsApp-First** — No new app to download; just message and apply.
+2.  **Universal Form Auto-Fill** — Fill ANY government form automatically with just a URL.
+3.  **Citizen Profile** — Build your profile once with OCR quick-fill, DigiLocker sync, or manual entry. Controlled inputs with per-section Save button.
+4.  **Intelligent Chatbot** — Powered by Google Gemini 2.0 Flash for natural conversations.
+5.  **Eligibility Screener** — Auto-checks scheme eligibility before collecting any data.
+
+### Document & Identity
+6.  **Smart OCR** — Extracts data from Aadhaar card photos using Gemini Vision.
+7.  **DigiLocker Integration** — OAuth-based document fetch and real-time validity checks.
+8.  **4-Digit Passkey** — Security gate for viewing sensitive data (PAN, Aadhaar) via WhatsApp.
+
+### Portals & Automation
+9.  **Multi-Portal Support** — PM-KISAN, PM Scholarship (PMSS), Central Scholarship (CSSS), Minority schemes.
+10. **Playwright Automation** — Agents fill out government forms in real-time via headless browser.
+11. **AI Form Scanner** — Detects form fields and maps them to profile data for any portal URL.
+
+### Tracking & Finance
+12. **Live Tracking** — Real-time application status with timeline breakdown (SSE).
+13. **NPCI Bank Verification** — Verify bank accounts before disbursement.
+14. **Renewal Automation** — Cron-based renewal reminders and re-application bot.
+15. **Credential Wallet** — On-chain credential anchoring via Solidity smart contract.
+
+### Platform
+16. **QR Code Login** — Scan a QR on WhatsApp to instantly log in to the web dashboard.
+17. **RAG-Powered Responses** — Context-aware answers from official government documentation.
+18. **OTP Auth** — One-time passwords delivered directly via WhatsApp, with Twilio SMS fallback.
+19. **Analytics Dashboard** — Admin insights on applications, schemes, and user activity.
+20. **Gov Officer Dashboard** — Disbursement tracking, fraud detection, and regional views.
 
 ## 🛠 Setup Instructions
 
@@ -133,10 +148,15 @@ graph TD
 
 5.  **Run the Backend**
     ```bash
-    python3 -m gov_agent.main
+    uvicorn gov_agent.main:app --host 0.0.0.0 --port 8000 --reload
     ```
 
-6.  **Run the Frontend**
+6.  **Expose Backend via ngrok (for Vercel + WhatsApp)**
+    ```bash
+    ngrok http 8000
+    ```
+
+7.  **Run the Frontend**
     ```bash
     cd frontend
     npm install
@@ -155,6 +175,7 @@ graph TD
 | `SUPABASE_KEY` | Supabase Service Role Key |
 | `GEMINI_API_KEY` | Google AI Studio Gemini API Key |
 | `SECRET_KEY` | JWT Secret Key for Auth |
+| `FRONTEND_URL` | Frontend URL for QR login redirects (e.g. `https://govbot-fawn.vercel.app`) |
 | `DIGILOCKER_CLIENT_ID` | DigiLocker OAuth App Client ID |
 | `DIGILOCKER_CLIENT_SECRET` | DigiLocker OAuth App Client Secret |
 | `DIGILOCKER_REDIRECT_URI` | DigiLocker OAuth Callback URL |
@@ -165,87 +186,113 @@ graph TD
 ### Frontend (`frontend/.env.local`)
 | Variable | Description |
 | :--- | :--- |
+| `NEXT_PUBLIC_API_URL` | Backend URL (ngrok URL or Railway URL) |
+| `NEXT_PUBLIC_FRONTEND_URL` | Frontend URL (your Vercel deployment URL) |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase Project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase Anonymous Key |
-| `NEXT_PUBLIC_RAILWAY_URL` | URL of your deployed backend |
 
 ## 📂 Project Structure
 
 ```text
 GovBot/
-├── gov_agent/                    # Backend Logic
-│   ├── main.py                   # FastAPI Entry Point
-│   ├── whatsapp_webhook.py       # Meta Webhook Handler
-│   ├── whatsapp_sender.py        # Message Sender Service
-│   ├── sms_sender.py             # Twilio SMS Fallback
-│   ├── session_manager.py        # Conversation State
-│   ├── flow_router.py            # LangGraph Flow Logic
-│   ├── graph.py                  # Agent Graph Definition
-│   ├── portal_agent.py           # Playwright Automation (PM-KISAN)
-│   ├── pm_kisan_agent.py         # PM-KISAN Portal Agent
-│   ├── pmss_agent.py             # PM Scholarship Agent
-│   ├── csss_agent.py             # Central Scholarship Agent
-│   ├── minority_agent.py         # Minority Welfare Agent
-│   ├── eligibility_router.py     # Scheme Eligibility Screener
-│   ├── ocr_router.py             # Aadhaar OCR Extraction
-│   ├── digilocker_router.py      # DigiLocker OAuth + Fetch
-│   ├── digilocker_agent.py       # DigiLocker Document Agent
-│   ├── doc_validator_router.py   # Document Validity Checker
-│   ├── profile_router.py         # Profile Management Routes
-│   ├── form_scanner_router.py    # Universal Form Scanner & Auto-Fill
-│   ├── credentials_router.py     # Credential Wallet Routes
-│   ├── credentials_agent.py      # On-chain Credential Agent
-│   ├── renewal_router.py         # Renewal Management
-│   ├── renewal_cron.py           # Scheduled Renewal Reminders
-│   ├── track_router.py           # Application Tracking
-│   ├── live_router.py            # Real-time Status (SSE)
-│   ├── analytics_router.py       # Admin Analytics
-│   ├── portal_router.py          # Multi-portal Router
-│   ├── npci_router.py            # NPCI/Bank Verification
-│   ├── auth_router.py            # OTP & Login Routes
-│   ├── rag_engine.py             # ChromaDB Integration
-│   ├── models.py                 # Pydantic Schemas
-│   ├── db.py                     # Supabase Client
-│   ├── config.py                 # Env Configurations
-│   └── docs/                     # Documentation & Media
-├── frontend/                     # Next.js Application
-│   ├── components/               # Shared UI Components
-│   │   ├── ProfilePrefillBanner.tsx # Profile auto-fill indicator
-│   │   └── [other components]
+├── gov_agent/                        # Backend
+│   ├── main.py                       # FastAPI entry point + router registration
+│   ├── config.py                     # Environment variable configuration
+│   ├── db.py                         # Supabase client
+│   ├── models.py                     # Pydantic schemas
+│   │
+│   ├── whatsapp_webhook.py           # Meta webhook handler
+│   ├── whatsapp_sender.py            # WhatsApp message sender
+│   ├── sms_sender.py                 # Twilio SMS fallback
+│   │
+│   ├── auth_router.py                # OTP & JWT login routes
+│   ├── qr_login.py                   # QR code login for web dashboard
+│   ├── session_manager.py            # Conversation state management
+│   ├── flow_router.py                # LangGraph conversation flow + passkey
+│   ├── graph.py                      # Agent graph definition
+│   │
+│   ├── profile_router.py             # Citizen profile CRUD + OCR fill
+│   ├── eligibility_router.py         # Scheme eligibility screener
+│   ├── form_scanner_router.py        # Universal form scanner & auto-fill
+│   ├── ocr_router.py                 # Aadhaar OCR extraction
+│   │
+│   ├── portal_router.py              # Multi-portal router
+│   ├── portal_agent.py               # Playwright automation base
+│   ├── pm_kisan_agent.py             # PM-KISAN portal agent
+│   ├── pm_kisan_router.py            # PM-KISAN routes
+│   ├── pmss_agent.py                 # PM Scholarship agent
+│   ├── csss_agent.py                 # Central Scholarship agent
+│   ├── minority_agent.py             # Minority Welfare agent
+│   │
+│   ├── digilocker_router.py          # DigiLocker OAuth + document fetch
+│   ├── digilocker_agent.py           # DigiLocker document agent
+│   ├── doc_validator_router.py       # Document validity checker
+│   │
+│   ├── npci_router.py                # NPCI bank verification routes
+│   ├── npci_agent.py                 # NPCI bank verification agent
+│   ├── credentials_router.py         # Credential wallet routes
+│   ├── credentials_agent.py          # On-chain credential agent
+│   │
+│   ├── track_router.py               # Application tracking
+│   ├── live_router.py                # Real-time status (SSE)
+│   ├── analytics_router.py           # Admin analytics
+│   ├── renewal_router.py             # Renewal management
+│   ├── renewal_cron.py               # Scheduled renewal reminders
+│   ├── rag_engine.py                 # ChromaDB RAG integration
+│   └── docs/                         # Documentation & media
+│
+├── frontend/                         # Next.js 15 Application
+│   ├── components/
+│   │   ├── Layout.tsx                # Global layout with navbar
+│   │   ├── ProfilePrefillBanner.tsx  # Profile auto-fill indicator
+│   │   ├── CredentialCard.tsx        # Verifiable credential display
+│   │   ├── StatusBadge.tsx           # Application status badges
+│   │   ├── AnimatedCounter.tsx       # Animated number counters
+│   │   ├── GovBotLoader.tsx          # Loading spinner
+│   │   ├── GradientBackground.tsx    # Decorative backgrounds
+│   │   ├── PageTransition.tsx        # Page transition animations
+│   │   ├── LanguageSelector.tsx      # Language picker
+│   │   ├── DemoBanner.tsx            # Demo mode banner
+│   │   └── ErrorBoundary.tsx         # Error boundary wrapper
 │   ├── pages/
-│   │   ├── index.tsx             # Landing / Login Page
-│   │   ├── dashboard.tsx         # User Dashboard
-│   │   ├── profile.tsx           # Profile Management
-│   │   ├── form-fill.tsx         # Universal Form Auto-Fill
-│   │   ├── admin.tsx             # Admin Analytics View
-│   │   ├── eligibility.tsx       # Eligibility Screener
-│   │   ├── services.tsx          # Services Directory
-│   │   ├── documents.tsx         # Document Manager
-│   │   ├── ocr.tsx               # Aadhaar OCR Upload
-│   │   ├── renewals.tsx          # Renewal Manager
-│   │   ├── bank-verify.tsx       # Bank Account Verification
-│   │   ├── track-search.tsx      # Application Search
-│   │   ├── track/[id].tsx        # Status Tracker
-│   │   ├── pmkisan.tsx           # PM-KISAN Portal
-│   │   ├── pmss/                 # PM Scholarship pages
-│   │   ├── csss/                 # Central Scholarship pages
-│   │   ├── minority/             # Minority Welfare pages
-│   │   ├── nsp/                  # NSP Portal pages
-│   │   ├── digilocker/           # DigiLocker OAuth flow
-│   │   ├── wallet/               # Credential Wallet
-│   │   ├── verify/               # Document Verification
-│   │   ├── gov-dashboard/        # Gov Officer Dashboard
-│   │   └── api/                  # Relay API Routes
-│   └── styles/                   # Global CSS + Design System
-├── api/                          # Standalone API module
+│   │   ├── index.tsx                 # Landing page
+│   │   ├── login.tsx                 # OTP login
+│   │   ├── dashboard.tsx             # User dashboard
+│   │   ├── profile.tsx               # Citizen profile management
+│   │   ├── services.tsx              # Services directory
+│   │   ├── eligibility.tsx           # Eligibility screener
+│   │   ├── form-fill.tsx             # Universal form auto-fill
+│   │   ├── ocr.tsx                   # Aadhaar OCR upload
+│   │   ├── documents.tsx             # Document manager
+│   │   ├── bank-verify.tsx           # Bank account verification
+│   │   ├── renewals.tsx              # Renewal manager
+│   │   ├── track-search.tsx          # Application search
+│   │   ├── track/[id].tsx            # Application status tracker
+│   │   ├── admin.tsx                 # Admin analytics view
+│   │   ├── pmkisan.tsx               # PM-KISAN portal
+│   │   ├── nsp/                      # NSP portal pages
+│   │   ├── pmss/                     # PM Scholarship pages
+│   │   ├── csss/                     # Central Scholarship pages
+│   │   ├── minority/                 # Minority Welfare pages
+│   │   ├── digilocker/               # DigiLocker OAuth flow
+│   │   ├── wallet/                   # Credential wallet
+│   │   ├── verify/                   # Credential verification
+│   │   ├── gov-dashboard/            # Gov officer dashboard
+│   │   │   ├── index.tsx             # Overview
+│   │   │   ├── disbursements.tsx     # Disbursement tracking
+│   │   │   ├── fraud.tsx             # Fraud detection
+│   │   │   └── regional.tsx          # Regional analytics
+│   │   └── api/                      # Next.js API relay routes
+│   └── styles/                       # Global CSS + Tailwind config
+│
+├── api/
+│   └── app.py                        # FastAPI instance (imported by main.py)
 ├── contracts/
-│   └── GovBotCredentials.sol     # Solidity Credential Contract
-├── schema.sql                    # Supabase DB Schema
-│   ├── citizen_profiles          # User profile data
-│   └── form_fill_sessions        # Auto-fill session logs
-├── requirements.txt              # Python Deps
-├── Dockerfile                    # Container Build
-└── README.md                     # Project Documentation
+│   └── GovBotCredentials.sol         # Solidity credential contract
+├── schema.sql                        # Full Supabase DB schema (17 tables)
+├── requirements.txt                  # Python dependencies
+├── Dockerfile                        # Container build
+└── README.md
 ```
 
 ## 🤝 Contributing
