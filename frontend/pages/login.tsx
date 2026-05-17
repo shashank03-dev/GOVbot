@@ -24,6 +24,17 @@ export default function Login() {
     return () => clearInterval(timer);
   }, [step, resendTimer]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    const ph = params.get('phone');
+    if (token && ph) {
+      localStorage.setItem('govbot_token', token);
+      localStorage.setItem('govbot_phone', ph);
+      router.push('/dashboard');
+    }
+  }, [router]);
+
   const handleSendOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setError('');
@@ -61,14 +72,17 @@ export default function Login() {
         body: JSON.stringify({ phone, otp }),
       });
 
-      if (!res.ok) {
-        throw new Error('Invalid OTP. Please try again.');
+      const data = await res.json();
+
+      if (!res.ok || !data.valid) {
+        throw new Error(data.error || 'Invalid OTP. Please try again.');
       }
 
-      const data = await res.json();
-      const token = data.token || 'dummy-token-fallback';
+      if (!data.token) {
+        throw new Error('Authentication failed. Please try again.');
+      }
 
-      localStorage.setItem('govbot_token', token);
+      localStorage.setItem('govbot_token', data.token);
       localStorage.setItem('govbot_phone', phone);
 
       router.push('/dashboard');

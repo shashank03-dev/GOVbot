@@ -8,10 +8,10 @@ import AnimatedCounter from '@/components/AnimatedCounter';
 import StatusBadge from '@/components/StatusBadge';
 import { FileText, Clock, CheckCircle, XCircle, ExternalLink, ArrowRight, User, Zap, ChevronRight } from 'lucide-react';
 
-const API_BASE = process.env.NEXT_PUBLIC_RAILWAY_URL || 'http://localhost:8000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key';
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 type Application = {
@@ -71,6 +71,27 @@ export default function Dashboard() {
       } catch { /* profile optional */ }
     })();
   }, [router]);
+
+  const [activities, setActivities] = useState<{event: string; timestamp: string}[]>([]);
+
+  useEffect(() => {
+    const phone = localStorage.getItem('govbot_phone');
+    if (!phone) return;
+
+    const fetchActivities = async () => {
+      try {
+        const res = await fetch(`/api/live/feed/${encodeURIComponent(phone)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setActivities(data.events || []);
+        }
+      } catch {}
+    };
+
+    fetchActivities();
+    const interval = setInterval(fetchActivities, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
   const totalApps = apps.length;
   const submittedCount = apps.filter(a => a.status === 'submitted').length;
@@ -256,6 +277,30 @@ export default function Dashboard() {
             </div>
           )}
         </div>
+
+        {activities.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-8 bg-white rounded-2xl border border-slate-100 shadow-sm p-6"
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+              <h3 className="font-semibold text-slate-900">Live Activity</h3>
+              <span className="text-xs text-slate-400">from WhatsApp Bot</span>
+            </div>
+            <div className="space-y-3 max-h-64 overflow-y-auto">
+              {activities.map((a, i) => (
+                <div key={i} className="flex items-start gap-3 text-sm">
+                  <span className="text-slate-400 text-xs whitespace-nowrap">
+                    {new Date(a.timestamp).toLocaleTimeString()}
+                  </span>
+                  <span className="text-slate-700">{a.event}</span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
       </div>
     </>
   );
