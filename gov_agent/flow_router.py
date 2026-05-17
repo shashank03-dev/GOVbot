@@ -100,6 +100,31 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
     _EXIT_KEYWORDS = {"exit", "close", "restart", "cancel", "reset", "start over", "/start"}
     body_lower = body.strip().lower()
 
+    # ── Global keyword: set passkey ────────────────────────────────────────
+    if body_lower in {"set pin", "set passkey", "change pin", "change passkey"}:
+        return ("🔐 Enter a 4-digit security PIN:", "set_passkey", data)
+
+    # ── Sensitive data query: "whats my pan", "my aadhaar", etc. ──────────
+    _SENSITIVE_PATTERNS = {
+        "pan": "pan_number",
+        "aadhaar": "aadhaar_number",
+        "bank": "bank_account",
+        "account": "bank_account",
+        "ifsc": "bank_ifsc",
+    }
+    for keyword, field in _SENSITIVE_PATTERNS.items():
+        if keyword in body_lower and ("my" in body_lower or "what" in body_lower or "show" in body_lower):
+            profile = await _load_profile(msg.phone)
+            if not profile.get("passkey"):
+                data["_reveal_field"] = field
+                return (
+                    "🔐 First, set a 4-digit security passkey to protect your data:",
+                    "set_passkey",
+                    {**data, "_reveal_field": field, "_after_passkey": "reveal"},
+                )
+            data["_reveal_field"] = field
+            return ("🔐 Enter your 4-digit passkey:", "passkey_verify", data)
+
     # ── Global keyword: update profile ──────────────────────────────────────
     if body_lower in {"update profile", "profile", "my profile", "/profile"}:
         profile = await _load_profile(msg.phone)
@@ -342,6 +367,41 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
             f"✅ {field.replace('_', ' ').title()} updated!\n\n"
             "Reply 'profile' to view your profile or 'Hi' for main menu.",
             "profile_view",
+            data,
+        )
+
+    # ── Passkey: Set passkey ──────────────────────────────────────────────
+    elif state == "set_passkey":
+        pin = body.strip()
+        if not pin.isdigit() or len(pin) != 4:
+            return ("❌ Enter a 4-digit PIN only.", "set_passkey", data)
+        await _save_profile_field(msg.phone, "passkey", pin)
+        await _emit_activity(msg.phone, "🔐 Security passkey set")
+        if data.get("_after_passkey") == "reveal":
+            field = data.get("_reveal_field", "")
+            data.pop("_after_passkey", None)
+            return ("✅ Passkey set! Now enter it to view your data:", "passkey_verify", data)
+        return (
+            "✅ Passkey set! You'll need this to view sensitive data.\n\n" + MENU,
+            "greeting",
+            data,
+        )
+
+    # ── Passkey: Verify before revealing data ─────────────────────────────
+    elif state == "passkey_verify":
+        pin = body.strip()
+        profile = await _load_profile(msg.phone)
+        stored_pin = profile.get("passkey", "")
+        if pin != stored_pin:
+            return ("❌ Wrong passkey. Try again:", "passkey_verify", data)
+        field = data.get("_reveal_field", "")
+        value = profile.get(field, "Not available")
+        await _emit_activity(msg.phone, f"🔓 Sensitive data accessed: {field}")
+        data.pop("_reveal_field", None)
+        return (
+            f"🔓 Your {field.replace('_', ' ').title()}: *{value}*\n\n"
+            "This message will not be stored. Type 'Hi' for menu.",
+            "greeting",
             data,
         )
 
