@@ -32,3 +32,4 @@ frontend/dist/
 # AI tooling & planning artifacts
 .planning/
 .windsurf/
+.superpowers/
