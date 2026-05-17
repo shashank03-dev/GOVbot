@@ -154,7 +154,7 @@ async def upsert_profile(phone: str, body: ProfileUpsert, token_phone: Optional[
 
         supabase.table("citizen_profiles").upsert(updates, on_conflict="phone").execute()
 
-        return await get_profile(phone)
+        return await get_profile(phone, token_phone=token_phone)
     except HTTPException:
         raise
     except Exception as e:
@@ -197,7 +197,7 @@ async def populate_from_ocr(phone: str, token_phone: Optional[str] = Depends(_op
         if not updates:
             raise HTTPException(status_code=422, detail="OCR extraction did not contain mappable fields")
 
-        return await upsert_profile(phone, ProfileUpsert(**updates))
+        return await upsert_profile(phone, ProfileUpsert(**updates), token_phone=token_phone)
     except HTTPException:
         raise
     except Exception as e:

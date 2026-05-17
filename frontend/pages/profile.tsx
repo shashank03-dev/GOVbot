@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -143,11 +143,12 @@ export default function ProfilePage() {
   const router = useRouter();
   const [phone, setPhone] = useState<string>('');
   const [profile, setProfile] = useState<Profile>({});
+  const [formData, setFormData] = useState<Profile>({});
   const [completeness, setCompleteness] = useState(0);
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState<string | null>(null);
-  const [saved, setSaved] = useState<string | null>(null);
+  const [savingSection, setSavingSection] = useState(false);
+  const [savedSection, setSavedSection] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState('personal');
   const [ocrLoading, setOcrLoading] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
@@ -165,6 +166,14 @@ export default function ProfilePage() {
     if (p) fetchProfile(p);
   }, [router]);
 
+  const applyProfileData = (data: any) => {
+    const p = data.profile || {};
+    setProfile(p);
+    setFormData(p);
+    setCompleteness(data.completeness_pct || 0);
+    setMissingFields(data.missing_fields || []);
+  };
+
   const fetchProfile = async (p: string) => {
     setLoading(true);
     try {
@@ -172,45 +181,54 @@ export default function ProfilePage() {
       const res = await fetch(`${API_BASE}/profile/${encodeURIComponent(p)}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) {
-        const data = await res.json();
-        setProfile(data.profile || {});
-        setCompleteness(data.completeness_pct || 0);
-        setMissingFields(data.missing_fields || []);
-      }
+      if (res.ok) applyProfileData(await res.json());
     } catch { /* profile may not exist yet */ }
     setLoading(false);
   };
 
-  const saveField = useCallback(async (key: keyof Profile, value: string | number) => {
+  const updateField = (key: keyof Profile, value: string) => {
+    setFormData(prev => ({ ...prev, [key]: value }));
+  };
+
+  const getDirtyFields = (sectionId: string): Record<string, string | number> => {
+    const section = SECTIONS.find(s => s.id === sectionId);
+    if (!section) return {};
+    const dirty: Record<string, string | number> = {};
+    const numericFields = ['income', 'marks_pct'];
+    for (const field of section.fields) {
+      const formVal = String(formData[field.key] ?? '').trim();
+      const savedVal = String(profile[field.key] ?? '').trim();
+      if (formVal && formVal !== savedVal) {
+        dirty[field.key] = numericFields.includes(field.key) ? parseFloat(formVal) : formVal;
+      }
+    }
+    return dirty;
+  };
+
+  const hasDirtyFields = Object.keys(getDirtyFields(activeSection)).length > 0;
+
+  const saveSection = async () => {
     if (!phone) return;
-    setSaving(key);
+    const dirty = getDirtyFields(activeSection);
+    if (Object.keys(dirty).length === 0) return;
+    setSavingSection(true);
     try {
       const token = localStorage.getItem('govbot_token');
       const res = await fetch(`${API_BASE}/profile/${encodeURIComponent(phone)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ [key]: value }),
+        body: JSON.stringify(dirty),
       });
       if (res.ok) {
-        const data = await res.json();
-        setProfile(data.profile || {});
-        setCompleteness(data.completeness_pct || 0);
-        setMissingFields(data.missing_fields || []);
-        setSaved(key);
-        setTimeout(() => setSaved(null), 2000);
+        applyProfileData(await res.json());
+        setSavedSection(activeSection);
+        showToast('Changes saved!');
+        setTimeout(() => setSavedSection(null), 2000);
+      } else {
+        showToast('Failed to save', 'error');
       }
     } catch { showToast('Failed to save', 'error'); }
-    setSaving(null);
-  }, [phone]);
-
-  const handleBlur = (key: keyof Profile, value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) return;
-    const current = profile[key];
-    if (String(current ?? '') === trimmed) return;
-    const numericFields = ['income', 'marks_pct'];
-    saveField(key, numericFields.includes(key) ? parseFloat(trimmed) : trimmed);
+    setSavingSection(false);
   };
 
   const fillFromOcr = async () => {
@@ -223,10 +241,7 @@ export default function ProfilePage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
-        const data = await res.json();
-        setProfile(data.profile || {});
-        setCompleteness(data.completeness_pct || 0);
-        setMissingFields(data.missing_fields || []);
+        applyProfileData(await res.json());
         showToast('✅ Profile auto-filled from Aadhaar OCR!');
       } else {
         showToast('No OCR data found — upload Aadhaar first', 'error');
@@ -344,50 +359,71 @@ export default function ProfilePage() {
             </div>
 
             {/* Fields */}
-            <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {currentSection.fields.map(field => {
-                const isSaving = saving === field.key;
-                const isSaved = saved === field.key;
-                const isMissing = missingFields.includes(field.key);
-                const value = profile[field.key] ?? '';
+            <div className="p-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {currentSection.fields.map(field => {
+                  const isMissing = missingFields.includes(field.key);
+                  const value = formData[field.key] ?? '';
+                  const isDirty = String(value).trim() !== String(profile[field.key] ?? '').trim();
 
-                return (
-                  <div key={field.key} className="space-y-1">
-                    <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
-                      {field.label}
-                      {isMissing && <AlertCircle size={11} className="text-amber-400" />}
-                      {!isMissing && value && <CheckCircle size={11} className="text-emerald-400" />}
-                    </label>
-                    {field.options ? (
-                      <select
-                        defaultValue={String(value)}
-                        onBlur={e => handleBlur(field.key, e.target.value)}
-                        onChange={e => handleBlur(field.key, e.target.value)}
-                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent transition"
-                      >
-                        <option value="">Select…</option>
-                        {field.options.map(opt => (
-                          <option key={opt} value={opt}>{opt}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <div className="relative">
+                  return (
+                    <div key={field.key} className="space-y-1">
+                      <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+                        {field.label}
+                        {isMissing && !isDirty && <AlertCircle size={11} className="text-amber-400" />}
+                        {!isMissing && !isDirty && value && <CheckCircle size={11} className="text-emerald-400" />}
+                        {isDirty && <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />}
+                      </label>
+                      {field.options ? (
+                        <select
+                          value={String(value)}
+                          onChange={e => updateField(field.key, e.target.value)}
+                          className={`w-full px-3 py-2 text-sm border rounded-xl bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent transition ${isDirty ? 'border-orange-300 bg-orange-50/30' : 'border-slate-200'}`}
+                        >
+                          <option value="">Select…</option>
+                          {field.options.map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      ) : (
                         <input
                           type={field.type || 'text'}
-                          defaultValue={String(value)}
+                          value={String(value)}
                           placeholder={field.placeholder}
-                          onBlur={e => handleBlur(field.key, e.target.value)}
-                          className="w-full px-3 py-2 pr-8 text-sm border border-slate-200 rounded-xl bg-white text-slate-800 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent transition"
+                          onChange={e => updateField(field.key, e.target.value)}
+                          className={`w-full px-3 py-2 text-sm border rounded-xl bg-white text-slate-800 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent transition ${isDirty ? 'border-orange-300 bg-orange-50/30' : 'border-slate-200'}`}
                         />
-                        <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
-                          {isSaving && <div className="w-3.5 h-3.5 border border-orange-400 border-t-transparent rounded-full animate-spin" />}
-                          {isSaved && <CheckCircle size={14} className="text-emerald-500" />}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Save button */}
+              <div className="flex items-center justify-end gap-3 mt-5 pt-4 border-t border-slate-100">
+                {savedSection === activeSection && (
+                  <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+                    <CheckCircle size={14} /> Saved
+                  </span>
+                )}
+                <button
+                  onClick={saveSection}
+                  disabled={!hasDirtyFields || savingSection}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-orange-500 text-white rounded-xl text-sm font-semibold hover:bg-orange-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {savingSection ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Saving…
+                    </>
+                  ) : (
+                    <>
+                      <Save size={15} />
+                      Save Changes
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
 
