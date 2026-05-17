@@ -6,7 +6,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'GET') {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_RAILWAY_URL}/live/${session}`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/live/${session}`);
       const data = await response.json();
       return res.status(response.status).json(data);
     } catch (e) {
@@ -16,7 +16,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'POST') {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_RAILWAY_URL}/live/${session}/update`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/live/${session}/update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(req.body),

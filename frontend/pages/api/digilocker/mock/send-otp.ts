@@ -11,7 +11,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_RAILWAY_URL || 'http://localhost:8000';
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     const response = await fetch(`${backendUrl}/auth/send-otp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

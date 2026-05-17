@@ -13,7 +13,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Enter a 12-digit Aadhaar or 11-digit Registration Number' });
     }
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_RAILWAY_URL}/pm-kisan/status`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/pm-kisan/status`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

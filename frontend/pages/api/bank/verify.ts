@@ -16,7 +16,7 @@ export default async function handler(
 
   try {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_RAILWAY_URL || 'http://localhost:8000'}/api/bank/mock/verify`,
+      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/bank/mock/verify`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

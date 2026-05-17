@@ -16,7 +16,7 @@ export default async function handler(
 
   try {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_RAILWAY_URL || 'http://localhost:8000'}/api/digilocker/mock/callback?consent_id=${consent_id}&action=${action || 'approve'}`
+      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/digilocker/mock/callback?consent_id=${consent_id}&action=${action || 'approve'}`
     );
 
     if (!response.ok) {

@@ -8,7 +8,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { phone } = req.body;
 
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_RAILWAY_URL}/auth/send-otp`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/auth/send-otp`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
