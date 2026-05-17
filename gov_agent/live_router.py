@@ -79,3 +79,37 @@ async def advance_live_session(session_id: str, step: int, form_state: dict, sta
         }).eq("session_id", session_id).execute()
     except Exception as e:
         logger.warning("advance_live_session failed: %s", e)
+
+
+class ActivityEvent(BaseModel):
+    phone: str
+    event: str
+
+
+@router.post("/event")
+async def post_activity_event(body: ActivityEvent):
+    try:
+        supabase.table("activity_feed").insert({
+            "phone": body.phone,
+            "event": body.event,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }).execute()
+    except Exception as e:
+        logger.warning("activity_feed insert failed: %s", e)
+    return {"ok": True}
+
+
+@router.get("/feed/{phone}")
+async def get_activity_feed(phone: str):
+    try:
+        resp = supabase.table("activity_feed").select("*").eq(
+            "phone", phone
+        ).order("created_at", desc=True).limit(20).execute()
+        events = [
+            {"event": r["event"], "timestamp": r["created_at"]}
+            for r in (resp.data or [])
+        ]
+        return {"events": list(reversed(events))}
+    except Exception as e:
+        logger.warning("activity_feed fetch failed: %s", e)
+        return {"events": []}

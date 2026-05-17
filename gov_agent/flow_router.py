@@ -60,6 +60,18 @@ async def _save_profile_field(phone: str, field: str, value) -> None:
         logger.warning(f"profile save error ({field}): {e}")
 
 
+async def _emit_activity(phone: str, event: str) -> None:
+    try:
+        from datetime import datetime, timezone
+        supabase.table("activity_feed").insert({
+            "phone": phone,
+            "event": event,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }).execute()
+    except Exception:
+        pass
+
+
 MENU = (
     "🙏 Namaste! GovBot - Govt Services\n\n"
     "1️⃣ Apply for Scholarship\n"
@@ -378,6 +390,7 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
                 reply += f"Please provide: *{missing[0].replace('_', ' ')}*"
                 return (reply, "form_fill_collect_gap", data)
             fill_result = await fill_form(FormFillRequest(url=url, phone=msg.phone, field_map=field_map, confirm=True))
+            await _emit_activity(msg.phone, f"🤖 Form auto-filled: {fill_result.get('filled_count', filled_count)} fields")
             return (
                 reply +
                 f"🎉 Form filled! {fill_result.get('filled_count', filled_count)} fields completed.\n\n"
@@ -424,6 +437,7 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
     elif state == "collect_name":
         data["name"] = body.strip()
         await _save_profile_field(msg.phone, "full_name", data["name"])
+        await _emit_activity(msg.phone, "📝 Profile collection started")
         session_id = str(uuid.uuid4())
         data["session_id"] = session_id
         try:
@@ -453,6 +467,7 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
             return ("❌ Enter numbers only", "collect_income", data)
         data["income"] = int(body.strip())
         await _save_profile_field(msg.phone, "income", data["income"])
+        await _emit_activity(msg.phone, f"💰 Income recorded: ₹{data['income']}")
         await _advance(data.get("session_id"), 3, {"name": data.get("name"), "dob": data.get("dob"), "income": data["income"]})
         return (
             "Please send a clear photo of your Aadhaar card 📎",
@@ -483,6 +498,7 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
                     data["_pending_ocr_confirm"] = True
                     ocr_name = ocr_result["name"]
                     ocr_dob = ocr_result.get("dob", "N/A")
+                    await _emit_activity(msg.phone, "📄 Document scanned via OCR")
                     return (
                         f"✅ Processing your Aadhaar...\nExtracted:\nName: {ocr_name}\nDOB: {ocr_dob}\n\nIs this correct? Reply YES or NO",
                         "ocr_confirm",
@@ -515,6 +531,7 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
                     result = await graph.run_application(data)
                 conf = result.get("submission_result", {}).get("confirmation_number")
                 if conf:
+                    await _emit_activity(msg.phone, f"🎉 Application submitted! Confirmation: {conf}")
                     return (
                         f"🎉 Application Submitted!\n\n"
                         f"Confirmation: {conf}\n\n"
@@ -528,7 +545,7 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
                 return (f"❌ Failed: {error}\nType restart", "completed", data)
             except Exception as e:
                 return (f"❌ Error: {str(e)}\nType restart", "completed", data)
-        
+
         return ("Please send Aadhaar as image 📎", "awaiting_document", data)
 
     elif state == "ocr_confirm":
