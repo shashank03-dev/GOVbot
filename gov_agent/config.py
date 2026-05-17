@@ -57,6 +57,7 @@ TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
 TWILIO_FROM_NUMBER = os.getenv("TWILIO_FROM_NUMBER", "")
 
 BASE_URL = os.getenv("BASE_URL", "https://govbot.vercel.app")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://govbot-fawn.vercel.app")
 
 # Optional: DigiLocker (Setu) - Mock mode works without these
 SETU_CLIENT_ID = os.getenv("SETU_CLIENT_ID", "")

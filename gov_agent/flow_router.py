@@ -7,7 +7,7 @@ from gov_agent.models import WhatsAppIncoming
 from gov_agent.db import supabase
 from gov_agent import rag_engine
 from gov_agent import graph
-from gov_agent.config import BASE_URL
+from gov_agent.config import BASE_URL, FRONTEND_URL
 from gov_agent.config import GEMINI_API_KEY
 
 logger = logging.getLogger(__name__)
@@ -104,6 +104,20 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
     if body_lower in {"set pin", "set passkey", "change pin", "change passkey"}:
         return ("🔐 Enter a 4-digit security PIN:", "set_passkey", data)
 
+    # ── Global keyword: open web dashboard ─────────────────────────────────
+    if body_lower in {"web", "open web", "dashboard", "open dashboard", "website"}:
+        from gov_agent.qr_login import get_login_url
+        login_url = get_login_url(msg.phone)
+        await _emit_activity(msg.phone, "🌐 Web dashboard link generated")
+        return (
+            f"🌐 *Open GovBot Web Dashboard*\n\n"
+            f"Click to open (auto-login):\n{login_url}\n\n"
+            f"📱 Share this link to access from another device.\n"
+            f"Link expires in 2 hours.",
+            "greeting",
+            data,
+        )
+
     # ── Sensitive data query: "whats my pan", "my aadhaar", etc. ──────────
     _SENSITIVE_PATTERNS = {
         "pan": "pan_number",
@@ -139,7 +153,7 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
             f"Caste: {profile.get('caste', '—')}\n"
             f"Bank: {'✅ added' if profile.get('bank_account') else '❌ missing'}\n\n"
             f"Missing: {missing_list}\n\n"
-            f"🌐 Complete your profile: govbot.vercel.app/profile\n"
+            f"🌐 Complete your profile: {FRONTEND_URL}/profile\n"
             f"Reply *UPDATE NAME*, *UPDATE INCOME*, etc. to change a field.",
             "profile_view",
             data,
@@ -151,7 +165,7 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
             "🤖 *Smart Form Fill*\n\n"
             "Paste the URL of any government form and I'll fill it from your profile.\n\n"
             "Example: https://scholarships.gov.in/fresh/newstdRegfrmInstruction\n\n"
-            "🌐 Or use the web tool: govbot.vercel.app/form-fill",
+            f"🌐 Or use the web tool: {FRONTEND_URL}/form-fill",
             "form_fill_url",
             data,
         )
@@ -181,7 +195,7 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
             return (
                 "🤖 *Smart Form Fill*\n\n"
                 "Paste the URL of any government form and I'll fill it from your profile.\n\n"
-                "🌐 Or use the web tool: govbot.vercel.app/form-fill",
+                f"🌐 Or use the web tool: {FRONTEND_URL}/form-fill",
                 "form_fill_url",
                 data,
             )
@@ -413,7 +427,7 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
         if not profile.get("full_name"):
             return (
                 "⚠️ Your profile is empty. Complete it first:\n"
-                "govbot.vercel.app/profile\n\n"
+                f"{FRONTEND_URL}/profile\n\n"
                 "Or reply 'update profile' to add your details via chat.",
                 "greeting",
                 data,
@@ -421,7 +435,7 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
         return (
             f"🔍 Analyzing form fields at:\n{url}\n\n"
             f"⏳ Opening form with Playwright + Gemini mapper...\n\n"
-            f"🌐 For live status: govbot.vercel.app/form-fill\n\n"
+            f"🌐 For live status: {FRONTEND_URL}/form-fill\n\n"
             f"This may take 30-60 seconds. I'll message you when done.",
             "form_fill_processing",
             {**data, "_fill_url": url},
@@ -454,7 +468,7 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
             return (
                 reply +
                 f"🎉 Form filled! {fill_result.get('filled_count', filled_count)} fields completed.\n\n"
-                f"📸 Screenshot: govbot.vercel.app/form-fill\n"
+                f"📸 Screenshot: {FRONTEND_URL}/form-fill\n"
                 f"Type 'restart' for main menu.",
                 "completed",
                 data,
@@ -463,7 +477,7 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
             logger.error(f"form_fill_processing error: {e}")
             return (
                 f"❌ Could not process form: {str(e)[:100]}\n"
-                "Try: govbot.vercel.app/form-fill for the web tool.",
+                f"Try: {FRONTEND_URL}/form-fill for the web tool.",
                 "greeting",
                 data,
             )
@@ -486,7 +500,7 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
             fill_result = await fill_form(FormFillRequest(url=url, phone=msg.phone, field_map=field_map, confirm=True))
             return (
                 f"🎉 Form filled! {fill_result.get('filled_count', len(field_map))} fields completed.\n\n"
-                "📸 Screenshot: govbot.vercel.app/form-fill\n"
+                f"📸 Screenshot: {FRONTEND_URL}/form-fill\n"
                 "Type 'restart' for main menu.",
                 "completed",
                 data,
@@ -506,7 +520,7 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
         except Exception:
             pass
         await _advance(session_id, 1, {"name": data["name"]})
-        live_link = f"{BASE_URL}/nsp?session={session_id}"
+        live_link = f"{FRONTEND_URL}/nsp?session={session_id}"
         from gov_agent import whatsapp_sender
         await whatsapp_sender.send_message(
             msg.phone,
@@ -596,9 +610,9 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
                         f"🎉 Application Submitted!\n\n"
                         f"Confirmation: {conf}\n\n"
                         f"Track status:\n"
-                        f"govbot.vercel.app/track/{conf}\n\n"
+                        f"{FRONTEND_URL}/track/{conf}\n\n"
                         f"View all your applications:\n"
-                        f"govbot.vercel.app/dashboard",
+                        f"{FRONTEND_URL}/dashboard",
                         "completed", data)
 
                 error = result.get("error", "Unknown error")
@@ -742,9 +756,9 @@ async def route(session: dict, msg: WhatsAppIncoming) -> tuple[str, str, dict]:
                     f"🎉 Application Submitted!\n\n"
                     f"Confirmation: {conf}\n\n"
                     f"Track status:\n"
-                    f"govbot.vercel.app/track/{conf}\n\n"
+                    f"{FRONTEND_URL}/track/{conf}\n\n"
                     f"View all your applications:\n"
-                    f"govbot.vercel.app/dashboard",
+                    f"{FRONTEND_URL}/dashboard",
                     "completed", data)
 
             error = result.get("error", "Unknown error")
@@ -1051,9 +1065,9 @@ async def _submit_application(phone: str, data: dict, portal: str) -> tuple:
                 f"🎉 Application Submitted!\n\n"
                 f"Confirmation: {conf}\n\n"
                 f"Track status:\n"
-                f"govbot.vercel.app/track/{conf}\n\n"
+                f"{FRONTEND_URL}/track/{conf}\n\n"
                 f"View all your applications:\n"
-                f"govbot.vercel.app/dashboard",
+                f"{FRONTEND_URL}/dashboard",
                 "completed", data)
 
         error = result.get("error", "Unknown error")

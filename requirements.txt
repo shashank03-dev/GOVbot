@@ -13,4 +13,6 @@ pydantic
 python-multipart
 aiofiles
 python-jose[cryptography]
+PyJWT
+qrcode[pil]
 twilio
